@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  ihras:
+    build: .
+    container_name: ihras_app
+    ports:
+      - "8501:8501"
+    environment:
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_PORT=8501
+      - IHRAS_MODEL_PATH=/app/models/initial_rf.joblib
+    volumes:
+      - ./:/app:cached
+    restart: unless-stopped
