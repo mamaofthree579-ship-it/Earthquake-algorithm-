@@ -1,24 +1,12 @@
-import streamlit as st
-from ingest.usgs import fetch_usgs_week
-from predictive.engine import score_from_mags
+from pathlib import Path
+import joblib
+from sklearn.ensemble import RandomForestClassifier
 
-st.title("Predictions")
+MODEL_PATH = Path(__file__).parent / "models" / "initial_rf.joblib"
 
-@st.cache_data(ttl=600)
-def get_quakes():
-    return fetch_usgs_week()
-
-df = get_quakes()
-if df is None or df.empty:
-    st.error("Couldn’t fetch USGS data.")
-    st.stop()
-
-if "magnitude" not in df.columns:
-    st.error("Feed missing magnitude column.")
-    st.stop()
-
-mags = df["magnitude"].tail(240).tolist()
-prob = score_from_mags(mags)
-
-st.metric("Elevated‑risk probability", f"{prob:.0%}")
-st.caption(f"Using {len(mags)} recent quakes (max {max(mags):.1f})")
+def train_demo_model(X, y):
+    """Fit a quick RandomForest and dump it to MODEL_PATH."""
+    clf = RandomForestClassifier(n_estimators=50, random_state=42)
+    clf.fit(X, y)
+    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(clf, MODEL_PATH)
