@@ -7,21 +7,25 @@ This file provides a small, explainable pipeline skeleton:
 
 For production, separate training & inference code, use MLflow/DVC, and implement robust validation.
 """
-import numpy as np
-import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+# predictive/engine.py
+import os, joblib
+import numpy as np, pandas as pd
 from sklearn.preprocessing import StandardScaler
-import joblib
-import os
+from sklearn.ensemble import RandomForestClassifier
 
 MODEL_PATH = os.environ.get("IHRAS_MODEL_PATH", "models/initial_rf.joblib")
 
+# ---- features ----
+def _mags_to_harmonics_df(mags):
+    mags = np.asarray(mags, dtype=float)
+    if mags.size < 16:
+        return pd.DataFrame({"freq": [0.0], "amp": [0.0]})
+    c = mags - mags.mean()
+    amp = np.abs(np.fft.rfft(c))
+    freq = np.fft.rfftfreq(c.size, d=1.0)
+    return pd.DataFrame({"freq": freq, "amp": amp})
+
 def features_from_harmonics(harmonics_df):
-    """
-    Convert harmonics/time-frequency data into a feature vector.
-    `harmonics_df` expected columns: ['freq','amp'] or aggregated features.
-    """
-    # basic summary features
     amp = harmonics_df["amp"].values
     feats = {
         "amp_mean": float(np.mean(amp)),
@@ -31,6 +35,7 @@ def features_from_harmonics(harmonics_df):
     }
     return pd.DataFrame([feats])
 
+# ---- model ops ----
 def train_demo_model(X, y):
     scaler = StandardScaler()
     Xs = scaler.fit_transform(X)
@@ -47,9 +52,15 @@ def load_model(path=None):
     return joblib.load(path)
 
 def predict(features_df):
-    artefact = load_model()
-    if artefact is None:
-        raise RuntimeError("No model artifact found. Train a model first.")
-    Xs = artefact["scaler"].transform(features_df)
-    preds = artefact["model"].predict_proba(Xs)[:,1]
-    return preds
+    art = load_model()
+    if art is None:
+        # no artifact yet → return neutral probability
+        return np.array([0.0])
+    Xs = art["scaler"].transform(features_df)
+    return art["model"].predict_proba(Xs)[:, 1]
+
+# convenience for the predictions tab
+def score_from_mags(mags):
+    h = _mags_to_harmonics_df(mags)
+    f = features_from_harmonics(h)
+    return float(predict(f)[0])
