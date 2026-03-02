@@ -38,5 +38,11 @@ if st.button("Run"):
     df.to_csv(out, index=False)
     st.success(f"Wrote {len(df)} rows")
     st.dataframe(df.head(20))  # show 20 rows
+flares = requests.get(...).json()
+flare_dates = {item["begin_time"][:10] for item in flares}
+df["solar_flare_window"] = df["date"].isin(flare_dates).astype(int)
+
+out = Path("data/sample_quakes.csv")
+df.to_csv(out, index=False)
 # or
 st.write(df.shape)         # (1000, 5) confirms 1000 rows, 5 columns
