@@ -1,57 +1,22 @@
-# predictive/engine.py
-import os, joblib
-import numpy as np, pandas as pd
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier
+import joblib
+from pathlib import Path
+import numpy as np
 
-MODEL_PATH = os.environ.get("IHRAS_MODEL_PATH", "models/initial_rf.joblib")
+MODEL_PATH = Path(__file__).parent / "models" / "initial_rf.joblib"
 
-# ---- features ----
-def _mags_to_harmonics_df(mags):
-    mags = np.asarray(mags, dtype=float)
-    if mags.size < 16:
-        return pd.DataFrame({"freq": [0.0], "amp": [0.0]})
-    c = mags - mags.mean()
-    amp = np.abs(np.fft.rfft(c))
-    freq = np.fft.rfftfreq(c.size, d=1.0)
-    return pd.DataFrame({"freq": freq, "amp": amp})
+def load_model():
+    try:
+        return joblib.load(MODEL_PATH)
+    except Exception: # catches ModuleNotFoundError, EOFError, etc.
+        return None # signal “no model”
 
-def features_from_harmonics(harmonics_df):
-    amp = harmonics_df["amp"].values
-    feats = {
-        "amp_mean": float(np.mean(amp)),
-        "amp_max": float(np.max(amp)),
-        "amp_std": float(np.std(amp)),
-        "peak_freq_idx": int(np.argmax(amp))
-    }
-    return pd.DataFrame([feats])
+def predict(feat_df):
+    model = load_model()
+    if model is None:
+        # fallback: zero probability for every row
+        return np.zeros(len(feat_df))
+    return model.predict_proba(feat_df)[:, 1]
 
-# ---- model ops ----
-def train_demo_model(X, y):
-    scaler = StandardScaler()
-    Xs = scaler.fit_transform(X)
-    clf = RandomForestClassifier(n_estimators=50, random_state=42)
-    clf.fit(Xs, y)
-    os.makedirs(os.path.dirname(MODEL_PATH) or ".", exist_ok=True)
-    joblib.dump({"scaler": scaler, "model": clf}, MODEL_PATH)
-    return MODEL_PATH
-
-def load_model(path=None):
-    path = path or MODEL_PATH
-    if not os.path.exists(path):
-        return None
-    return joblib.load(path)
-
-def predict(features_df):
-    art = load_model()
-    if art is None:
-        # no artifact yet → return neutral probability
-        return np.array([0.0])
-    Xs = art["scaler"].transform(features_df)
-    return art["model"].predict_proba(Xs)[:, 1]
-
-# convenience for the predictions tab
 def score_from_mags(mags):
-    h = _mags_to_harmonics_df(mags)
-    f = features_from_harmonics(h)
+    # …build features df called `f`…
     return float(predict(f)[0])
