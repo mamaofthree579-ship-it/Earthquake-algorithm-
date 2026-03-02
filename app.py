@@ -1,6 +1,5 @@
 import streamlit as st
 import plotly.graph_objects as go
-
 from services.data_ingestion import fetch_usgs_earthquakes
 from physics.stress_solver import HarmonicStressSolver
 
