@@ -4,27 +4,17 @@ from datetime import date, timedelta, datetime
 from scipy.sparse import diags
 from scipy.sparse.linalg import spsolve
 
-st.title("Stochastic Stress‑Field Risk Model")
+st.title("Location‑Aware Stochastic Risk Model")
 
 # ----- PDE constants -----
-D = 0.5
-lam = 0.3
-kappa = 0.02
-alpha = 0.1
-beta = 0.05
-gamma = 0.2
-delta = 0.08
-noise_amp = 0.05
-dx = 1.0
-dt = 0.01
-N = 200 # grid points
-
-# build implicit diffusion matrix
+D, lam, kappa = 0.5, 0.3, 0.02
+alpha, beta, gamma, delta = 0.1, 0.05, 0.2, 0.08
+noise_amp, dx, dt = 0.05, 1.0, 0.01
+N = 200
 main = np.ones(N) + 2*dt*D/(dx**2)
 off = -dt*D/(dx**2) * np.ones(N-1)
 A = diags([off, main, off], [-1,0,1]).toarray()
 
-# ----- fetch recent quakes -----
 today = date.today()
 end = today.isoformat()
 start_recent = (today - timedelta(days=7)).isoformat()
@@ -45,10 +35,13 @@ def fetch(start, end):
         return pd.DataFrame()
     rows = []
     for f in data.get("features", []):
-        p = f["properties"]
+        p, g = f["properties"], f["geometry"]["coordinates"]
         rows.append({
             "date": datetime.utcfromtimestamp(p["time"]/1000).strftime("%Y-%m-%d"),
-            "mag": p["mag"] or 0
+            "place": p["place"],
+            "mag": p["mag"] or 0,
+            "lon": g[0],
+            "lat": g[1]
         })
     return pd.DataFrame(rows)
 
@@ -57,49 +50,33 @@ if df.empty:
     st.write("No recent quakes")
     st.stop()
 
-# ----- simple forcing proxies -----
-S = np.sin(0.01*np.arange(len(df))) # solar
-G = np.cos(0.008*np.arange(len(df))) # geomagnetic
-V = df["mag"].values # volcanic proxy
-O = 0.5*np.cos(0.005*np.arange(len(df))) # ocean loading proxy
+# ----- place selector -----
+places = df["place"].unique().tolist()
+choice = st.selectbox("Choose event location", places)
+event = df[df["place"] == choice].iloc[0]
+st.caption(f"Lat {event.lat:.2f}, Lon {event.lon:.2f}")
 
-# ----- evolve sigma field -----
+# seed forcing with chosen magnitude
+mag_seed = event.mag
+
+# ----- run PDE (same as before, using mag_seed as V) -----
 sigma = np.random.normal(0, 0.01, N)
 sigmas = []
 for n in range(len(df)):
-    forcing = (alpha*S[n] + beta*G[n] + gamma*V[n] + delta*O[n] +
+    S = math.sin(0.01*n)
+    G = math.cos(0.008*n)
+    V = mag_seed # local volcanic stress proxy
+    O = 0.5*math.cos(0.005*n)
+    forcing = (alpha*S + beta*G + gamma*V + delta*O +
                kappa*sigma**3 + noise_amp*np.random.randn(N))
     rhs = sigma + dt*(-lam*sigma + forcing)
     sigma = spsolve(A, rhs)
     sigmas.append(sigma.copy())
 
-sigmas = np.array(sigmas)
-I = sigmas.mean(axis=1) # spatial average as instability index
-
+I = np.array(sigmas).mean(axis=1)
 df["I"] = I
-df["P"] = 1 / (1 + np.exp(-df["I"]))
-df["P"] = df["P"].clip(0.01, 0.99)
+df["P"] = 1 / (1 + np.exp(-df["I"])).clip(0.01, 0.99)
 df["Risk"] = df["P"].apply(lambda p: "Low" if p<0.25 else "Moderate" if p<0.5 else "Elevated" if p<0.75 else "Critical")
 
-st.subheader("Recent risk")
-st.dataframe(df[["date","mag","P","Risk"]])
-
-# forward forecast using last sigma
-sigma_last = sigma
-future = []
-for i in range(1,4):
-    d = (today + timedelta(days=i)).isoformat()
-    # one step forward with mean forcings
-    forcing = (alpha*np.sin(0.01*(len(df)+i)) + beta*np.cos(0.008*(len(df)+i)) +
-               gamma*df["mag"].mean() + delta*0.5*np.cos(0.005*(len(df)+i)) +
-               kappa*sigma_last**3 + noise_amp*np.random.randn(N))
-    rhs = sigma_last + dt*(-lam*sigma_last + forcing)
-    sigma_last = spsolve(A, rhs)
-    I_fut = sigma_last.mean()
-    P_fut = 1 / (1 + math.exp(-I_fut))
-    P_fut = max(min(P_fut, 0.99), 0.01)
-    risk = "Low" if P_fut<0.25 else "Moderate" if P_fut<0.5 else "Elevated" if P_fut<0.75 else "Critical"
-    future.append({"date":d,"P":P_fut,"Risk":risk})
-
-st.subheader("Forward risk")
-st.dataframe(pd.DataFrame(future))
+st.subheader("Recent risk (location‑seeded)")
+st.dataframe(df[["date","place","mag","P","Risk"]])
