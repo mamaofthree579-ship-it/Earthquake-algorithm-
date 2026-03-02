@@ -1,27 +1,57 @@
-import streamlit as st
-from predictive.engine import features_from_harmonics, load_model, predict
-import pandas as pd
-import numpy as np
+# predictive/engine.py
+import os, joblib
+import numpy as np, pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
 
-st.title("Predictions — Risk Indices & Probability Cones")
+MODEL_PATH = os.environ.get("IHRAS_MODEL_PATH", "models/initial_rf.joblib")
 
-st.write("This page demonstrates how a fitted model could be used to score harmonics features.")
+# ---- features ----
+def _mags_to_harmonics_df(mags):
+    mags = np.asarray(mags, dtype=float)
+    if mags.size < 16:
+        return pd.DataFrame({"freq": [0.0], "amp": [0.0]})
+    c = mags - mags.mean()
+    amp = np.abs(np.fft.rfft(c))
+    freq = np.fft.rfftfreq(c.size, d=1.0)
+    return pd.DataFrame({"freq": freq, "amp": amp})
 
-st.info("This is a demo. Train a model using `predictive.train_demo_model` before running predictions.")
+def features_from_harmonics(harmonics_df):
+    amp = harmonics_df["amp"].values
+    feats = {
+        "amp_mean": float(np.mean(amp)),
+        "amp_max": float(np.max(amp)),
+        "amp_std": float(np.std(amp)),
+        "peak_freq_idx": int(np.argmax(amp))
+    }
+    return pd.DataFrame([feats])
 
-if st.button("Run demo scoring (synthetic)"):
-    # create synthetic harmonics features
-    n = 1024
-    xf = np.linspace(0, 100, n//2)
-    amp = np.random.rand(n//2) * 0.1
-    amp[10] += 1.0  # inject a peak
-    harmonics_df = pd.DataFrame({"freq": xf, "amp": amp})
-    feats = features_from_harmonics(harmonics_df)
-    st.write("Derived features:")
-    st.json(feats.to_dict(orient="records"))
-    model = load_model()
-    if model is None:
-        st.warning("No model artifact found. Use training routines to create a model first.")
-    else:
-        scores = predict(feats)
-        st.success(f"Predicted risk score (0..1): {float(scores[0]):.3f}")
+# ---- model ops ----
+def train_demo_model(X, y):
+    scaler = StandardScaler()
+    Xs = scaler.fit_transform(X)
+    clf = RandomForestClassifier(n_estimators=50, random_state=42)
+    clf.fit(Xs, y)
+    os.makedirs(os.path.dirname(MODEL_PATH) or ".", exist_ok=True)
+    joblib.dump({"scaler": scaler, "model": clf}, MODEL_PATH)
+    return MODEL_PATH
+
+def load_model(path=None):
+    path = path or MODEL_PATH
+    if not os.path.exists(path):
+        return None
+    return joblib.load(path)
+
+def predict(features_df):
+    art = load_model()
+    if art is None:
+        # no artifact yet → return neutral probability
+        return np.array([0.0])
+    Xs = art["scaler"].transform(features_df)
+    return art["model"].predict_proba(Xs)[:, 1]
+
+# convenience for the predictions tab
+def score_from_mags(mags):
+    h = _mags_to_harmonics_df(mags)
+    f = features_from_harmonics(h)
+    return float(predict(f)[0])
