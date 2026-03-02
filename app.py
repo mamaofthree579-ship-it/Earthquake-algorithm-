@@ -6,41 +6,49 @@ from ingestion.noaa import fetch_enso_index
 from ingestion.solar import fetch_kp_index
 from utils.harmonics import celestial_forcing
 
-st.set_page_config(layout="wide")
-st.title("🌍 IHRAS v3.1 — Planetary Harmonic Observatory")
+st.header("Live Earthquake Map")
 
-# -------------------------
-# Sidebar Monitoring Panel
-# -------------------------
+if df.empty:
+    st.warning("No earthquake data available.")
+else:
+    # ---------- HARD TYPE ENFORCEMENT ----------
+    df = df.copy()
 
-st.sidebar.header("🌐 Global Indices")
+    df["mag"] = pd.to_numeric(df["mag"], errors="coerce")
+    df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
+    df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
 
-@st.cache_data(ttl=300)
-def load_eq():
-    return fetch_earthquakes()
+    df = df.replace([np.inf, -np.inf], np.nan)
+    df = df.dropna(subset=["mag", "lat", "lon"])
 
-@st.cache_data(ttl=3600)
-def load_enso():
-    return fetch_enso_index()
+    df = df[df["mag"] > 0]
+    df = df[(df["lat"].between(-90, 90)) & (df["lon"].between(-180, 180))]
 
-@st.cache_data(ttl=900)
-def load_kp():
-    return fetch_kp_index()
+    # ---------- SAFE SIZE SCALING ----------
+    df["size_scaled"] = np.clip(df["mag"], 0.1, 10)
 
-try:
-    df = load_eq()
-    enso = load_enso()
-    kp = load_kp()
-    celestial = celestial_forcing()
+    if df.empty:
+        st.warning("No valid earthquake data after cleaning.")
+    else:
+        fig = px.scatter_geo(
+            df,
+            lat="lat",
+            lon="lon",
+            size="size_scaled",
+            hover_name="place",
+            projection="natural earth",
+            size_max=12
+        )
 
-    st.sidebar.metric("ENSO Index", round(enso,2))
-    st.sidebar.metric("Kp Index", round(kp,2))
-    st.sidebar.metric("Celestial Harmonic", round(celestial,2))
+        fig.update_layout(
+            geo=dict(
+                showland=True,
+                landcolor="rgb(240,240,240)",
+                showcountries=True
+            )
+        )
 
-except Exception as e:
-    st.sidebar.error(f"Data Error: {e}")
-    st.stop()
-
+        st.plotly_chart(fig, use_container_width=True)
 # -------------------------
 # Earthquake Map
 # -------------------------
