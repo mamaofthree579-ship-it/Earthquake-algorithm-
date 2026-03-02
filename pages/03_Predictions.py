@@ -1,48 +1,47 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-from pathlib import Path
+import requests, pandas as pd, numpy as np
+from datetime import date, timedelta, datetime
 
-st.title("7‑Day Quake Predictions")
+st.title("7‑Day Quake Predictions (live)")
 
-csv = Path("data/sample_quakes.csv")
-if not csv.exists():
-    st.warning("Run Olddata first")
-    st.stop()
+# ---- live USGS (last 7 days) ----
+today = date.today()
+start = (today - timedelta(days=7)).isoformat()
+end = today.isoformat()
+resp = requests.get(
+    "https://earthquake.usgs.gov/fdsnws/event/1/query",
+    params={"format":"geojson","starttime":start,"endtime":end},
+    headers={"User-Agent":"eq-demo"},
+    timeout=15
+)
+resp.raise_for_status()
+raw = resp.json()
+rows = [{
+    "date": datetime.utcfromtimestamp(f["properties"]["time"]/1000).strftime("%Y-%m-%d"),
+    "place": f["properties"]["place"],
+    "magnitude": f["properties"]["mag"] or 0
+} for f in raw["features"]]
+df = pd.DataFrame(rows)
 
-df = pd.read_csv(csv)
-df["magnitude"] = pd.to_numeric(df["magnitude"], errors="coerce").fillna(0)
-df["solar_flare_window"] = pd.to_numeric(df["solar_flare_window"], errors="coerce").fillna(0).astype(int)
+# ---- live flares ----
+flares = requests.get(
+    "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json",
+    timeout=15
+).json()
+flare_dates = {item["begin_time"][:10] for item in flares}
+df["solar_flare_window"] = df["date"].isin(flare_dates).astype(int)
 
-base_rates = {
-    "Alaska":0.9, "California":0.6, "Chile":0.8, "Japan":0.8,
-    "Indonesia":0.9, "Greece":0.5, "Turkey":0.7, "Mexico":0.6
-}
-w_region=0.30; w_flare=0.25; w_quant=0.25; w_day=0.10; w_bias=0.05
-
+# ---- same PIN model ----
+base_rates = {"Alaska":0.9,"California":0.6,"Chile":0.8,"Japan":0.8,
+              "Indonesia":0.9,"Greece":0.5,"Turkey":0.7,"Mexico":0.6}
+w_region,w_flare,w_quant,w_day,w_bias = 0.30,0.25,0.25,0.10,0.05
+df["magnitude"] = pd.to_numeric(df["magnitude"],errors="coerce").fillna(0)
 quant = df["magnitude"].rank(pct=True)
-ref_day = df.index.min()
-days = df.index - ref_day
-
-def pin_row(r):
-    key = next((k for k in base_rates if k.lower() in str(r["place"]).lower()), None)
-    region_risk = base_rates.get(key,0.3)
-    days_ago_norm = 1/(1+days[r.name])
-    prob = (w_region*region_risk + w_flare*r["solar_flare_window"] +
-            w_quant*quant[r.name] + w_day*days_ago_norm + w_bias*1.0)
-    return min(prob,1.0)
-
-df["elevated_risk_prob"] = df.apply(pin_row, axis=1)
-df["predicted_magnitude_offset"] = np.tanh(df["elevated_risk_prob"]-0.5)*1.5
-df["predicted_magnitude"] = (df["magnitude"]+df["predicted_magnitude_offset"]).clip(4.0,8.5)
-
-top = df.nlargest(5,"elevated_risk_prob")[["date","place","magnitude","predicted_magnitude","elevated_risk_prob"]]
-st.subheader("Top 5 elevated‑risk places (7‑day)")
+df["elevated_risk_prob"] = df.apply(
+    lambda r: min(w_region*base_rates.get(
+        next((k for k in base_rates if k.lower() in str(r["place"]).lower()), 0.3)
+    + w_flare*r["solar_flare_window"] + w_quant*quant[r.name] + w_bias, 1.0),
+    axis=1
+)
+top = df.nlargest(5,"elevated_risk_prob")[["date","place","magnitude","solar_flare_window","elevated_risk_prob"]]
 st.dataframe(top)
-
-# optional map:
-if not top.empty:
-    map_df = df.loc[top.index].copy()
-    map_df["lat"] = map_df["place"].str.extract(r"([0-9.]+)").astype(float)
-    map_df["lon"] = map_df["place"].str.extract(r",\s*([\-0-9.]+)").astype(float)
-    st.map(map_df.dropna(subset=["lat","lon"]))
