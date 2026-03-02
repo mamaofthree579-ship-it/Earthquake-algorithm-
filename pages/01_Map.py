@@ -19,3 +19,6 @@ except Exception as e:
 
 # share with Predictions tab
 st.session_state["quakes"] = df
+df = requests.get(...).json()
+# …process into columns mag, lat, lon…
+st.session_state["quakes"] = df
