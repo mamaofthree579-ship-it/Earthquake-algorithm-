@@ -6,6 +6,6 @@ scipy>=1.13,<1.15
 pywavelets>=1.6
 scikit-learn>=1.4
 plotly.express
-torch (optional GPU)
+torch
 joblib
 tenacity
