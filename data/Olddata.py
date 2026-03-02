@@ -1,17 +1,20 @@
-import streamlit as st
-import requests, pandas as pd
+import requests
+import pandas as pd
 from datetime import datetime
 from pathlib import Path
 
-st.header("Load historical USGS data")
-
-if st.button("Fetch 2023 quakes"):
+def fetch_usgs(start, end, out_file):
     url = (
         "https://earthquake.usgs.gov/fdsnws/event/1/query?"
-        "format=geojson&starttime=2023-01-01&endtime=2023-12-31"
+        f"format=geojson&starttime={start}&endtime={end}"
     )
-    r = requests.get(url)
-    data = r.json()
+    try:
+        r = requests.get(url, timeout=10, headers={"User-Agent": "eq-demo"})
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        print(f"USGS request failed: {e}")
+        return
 
     rows = []
     for f in data["features"]:
@@ -25,21 +28,11 @@ if st.button("Fetch 2023 quakes"):
             "solar_flare_window": 0
         })
 
-if st.button("Fetch 2023 quakes"):
-    url = (
-        "https://earthquake.usgs.gov/fdsnws/event/1/query?"
-        "format=geojson&starttime=2023-01-01&endtime=2023-12-31"
-    )
-    try:
-        r = requests.get(url, timeout=10, headers={"User-Agent": "eq-demo"})
-        r.raise_for_status()
-        data = r.json()
-    except Exception as e:
-        st.error(f"USGS request failed: {e}")
-        st.stop()
+    df = pd.DataFrame(rows)
+    out_path = Path(out_file)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out_path, index=False)
+    print(f"Wrote {len(df)} rows to {out_path}")
 
-    # …rest of parsing logic…    
-    old_df = pd.DataFrame(rows)
-    csv_path = Path(__file__).parents[1] / "data" / "sample_quakes.csv"
-    old_df.to_csv(csv_path, index=False)
-    st.success(f"Saved {len(old_df)} rows")
+# example run
+fetch_usgs("2023-01-01", "2023-12-31", "data/sample_quakes.csv")
