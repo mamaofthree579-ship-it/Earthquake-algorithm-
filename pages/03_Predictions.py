@@ -5,19 +5,24 @@ from sklearn.linear_model import LogisticRegression
 
 st.title("Trained Harmonic Stress Risk Model")
 
-# ----- constants for new physics -----
-mu_v = 0.5 # volcanic coupling
-kappa_v = 0.1 # chamber compressibility
-eta_v = 0.05 # volcanic damping
-D = 0.3 # stress diffusion coeff
-rho = 0.2 # relaxation rate
-crit_k = 0.1 # representative wavenumber (long‑wavelength)
+# ----- physics constants -----
+mu_v, kappa_v, eta_v = 0.5, 0.1, 0.05
+D, rho, crit_k = 0.3, 0.2, 0.1
 
-# ----- file upload (optional) -----
+# ----- upload with validation -----
 uploaded = st.file_uploader("Upload past quakes CSV (date,mag,place)", type="csv")
 if uploaded:
-    df_hist = pd.read_csv(uploaded, parse_dates=["date"])
-    df_hist["date"] = df_hist["date"].dt.strftime("%Y-%m-%d")
+    df_hist = pd.read_csv(uploaded)
+    # normalize column names
+    df_hist.columns = df_hist.columns.str.lower().str.strip()
+    # require mag; if missing, warn and empty
+    if "mag" not in df_hist.columns or "date" not in df_hist.columns:
+        st.warning("CSV must include 'date' and 'mag' columns")
+        df_hist = pd.DataFrame()
+    else:
+        if "place" not in df_hist.columns:
+            df_hist["place"] = "unknown"
+        df_hist["date"] = pd.to_datetime(df_hist["date"]).dt.strftime("%Y-%m-%d")
 else:
     df_hist = pd.DataFrame()
 
@@ -55,14 +60,13 @@ if df.empty:
     st.write("No recent quakes")
     st.stop()
 
-# cosmic flare flag
 flares = requests.get(
     "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json",
     timeout=15
 ).json()
 flare_days = {item["begin_time"][:10] for item in flares}
 
-# ----- build feature frames -----
+# process both frames
 frames = []
 for frame in (df_hist, df):
     if frame.empty:
@@ -72,7 +76,6 @@ for frame in (df_hist, df):
     frame["S_t"] = frame["mag"].rolling(3, min_periods=1).apply(
         lambda x: np.sum(x*np.sin(np.arange(len(x)))), raw=False
     )
-    # volcanic pressure (simple Euler step, Q_in‑Q_out ~ flare*mag)
     frame["P_v"] = 0.0
     for i in range(1, len(frame)):
         q = frame["flare"].iloc[i] * frame["mag"].iloc[i]
@@ -87,7 +90,6 @@ if len(frames)==2:
 else:
     df = frames[0]
 
-# train logistic model on extended features
 if not df_hist.empty:
     df_hist["target"] = (df_hist["mag"] >= 5).astype(int)
     X = df_hist[["S_t","C","W","P_v"]].fillna(0)
@@ -99,26 +101,19 @@ else:
     coef = np.array([1.0, 0.4, 0.3, mu_v])
     intercept = 0.0
 
-# instability index with diffusion smoothing
 df["I_raw"] = (coef[3]*df["P_v"] + coef[2]*df["W"]*df["S_t"] + coef[1]*df["C"])
-df["I"] = df["I_raw"].rolling(3, min_periods=1).mean() # proxy for D∇²I - ρI
-df["I"] = df["I"] - rho*df["I_raw"] # relaxation
-
-# forcing vs critical
+df["I"] = df["I_raw"].rolling(3, min_periods=1).mean() - rho*df["I_raw"]
 F_total = df["W"]*df["S_t"] + df["C"] + mu_v*df["P_v"]
 F_crit = rho + D*(crit_k**2)
 df["Unstable"] = F_total > F_crit
-
-# probability
 df["P"] = 1 / (1 + np.exp(-(df["I"] + intercept)))
 df["P"] = df["P"].clip(0.01, 0.99)
 df["Risk"] = df["P"].apply(lambda p: "Low" if p<0.25 else "Moderate" if p<0.5 else "Elevated" if p<0.75 else "Critical")
-df["Risk"] = np.where(df["Unstable"], df["Risk"] + " *", df["Risk"]) # mark unstable
+df["Risk"] = np.where(df["Unstable"], df["Risk"]+" *", df["Risk"])
 
 st.subheader("Recent risk")
 st.dataframe(df[["date","place","mag","P","Risk"]])
 
-# forward forecast (reuse last I)
 last_I = df["I"].iloc[-1]
 future = []
 for i in range(1,4):
