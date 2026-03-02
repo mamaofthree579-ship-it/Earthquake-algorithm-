@@ -8,6 +8,10 @@ st.write("This page visualizes recent USGS earthquakes from the 7-day feed.")
 
 try:
     df = fetch_usgs_week()
+    # Map tab code – after you’ve assembled df with the magnitude column
+st.session_state["quakes"] = df      # ← share it globally
+st.map(df[["latitude", "longitude"]])
+st.success(f"Loaded {len(df)} quakes")
     if not df.empty:
         map_df = df.rename(columns={"latitude": "lat", "longitude": "lon"})[["lat", "lon", "magnitude", "place", "time_utc"]].dropna()
         st.map(map_df[["lat","lon"]])
