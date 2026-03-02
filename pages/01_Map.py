@@ -16,3 +16,13 @@ try:
         st.info("No earthquake data available")
 except Exception as e:
     st.error(f"Failed to load USGS data: {e}")
+
+# ---- main UI ----
+df = load_usgs()
+
+# share with Predictions tab
+st.session_state["quakes"] = df
+
+# quick sanity check
+st.map(df[["lat", "lon"]])
+st.write(f"Loaded {len(df)} quakes (last {df['time'].min().date()} to {df['time'].max().date()})")
