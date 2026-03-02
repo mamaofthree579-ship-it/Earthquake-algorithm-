@@ -5,26 +5,25 @@ from sklearn.ensemble import RandomForestClassifier
 
 st.title("Predictions")
 
-# historic seed
 historic = pd.read_csv(
     Path(__file__).parents[1] / "data" / "sample_quakes.csv"
 )
 
-# live data if Map tab ran
 live = st.session_state.get("quakes")
 if live is not None:
     live = live.copy()
-    live["solar_flare_window"] = 0 # assume no flag for live feed
+    live["solar_flare_window"] = 0
     df = pd.concat([historic, live], ignore_index=True)
 else:
     df = historic
 
-# build windows
+# force numeric only
+mags = pd.to_numeric(df["magnitude"], errors="coerce").fillna(0).tolist()
+flares = pd.to_numeric(df["solar_flare_window"], errors="coerce").fillna(0).tolist()
+
 X, y = [], []
-mags = df["magnitude"].tolist()
-flares = df["solar_flare_window"].tolist()
 for i in range(120, len(df)):
-    X.append(mags[i-120:i] + [flares[i]]) # 120 mags + flare flag
+    X.append(mags[i-120:i] + [flares[i]])
     y.append(1 if mags[i] > 5.5 else 0)
 
 if "model" not in st.session_state:
