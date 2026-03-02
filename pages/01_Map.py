@@ -8,9 +8,8 @@ st.write("This page visualizes recent USGS earthquakes from the 7-day feed.")
 
 try:
     df = fetch_usgs_week()
-   
-st.map(df[["latitude", "longitude"]])
-st.success(f"Loaded {len(df)} quakes")
+   st.map(df[["latitude", "longitude"]])
+   st.success(f"Loaded {len(df)} quakes")
     if not df.empty:
         map_df = df.rename(columns={"latitude": "lat", "longitude": "lon"})[["lat", "lon", "magnitude", "place", "time_utc"]].dropna()
         st.map(map_df[["lat","lon"]])
