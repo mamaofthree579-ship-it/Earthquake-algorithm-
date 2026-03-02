@@ -57,3 +57,18 @@ latest = np.append(np.append(latest_window, flares[-1]), h_latest).reshape(1, -1
 prob = clf.predict_proba(latest)[0, 1]
 
 st.metric("Elevated‑risk probability", f"{prob:.0%}")
+
+# ---- where is the risk? ----
+# predict risk for each historic window
+probs = clf.predict_proba(X)[:, 1]
+high_idx = np.where(probs > 0.5)[0] # windows flagged as risky
+
+# map back to rows in the original df (offset by 120)
+risk_places = df.iloc[high_idx + 120]["place"].value_counts().head(5)
+
+st.subheader("Top places in recent risky windows")
+if not risk_places.empty:
+    for place, count in risk_places.items():
+        st.write(f"{place} – {count} recent windows")
+else:
+    st.write("No single location dominates the risky windows.")
