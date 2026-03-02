@@ -19,6 +19,8 @@ except Exception as e:
 
 # share with Predictions tab
 st.session_state["quakes"] = df
-df = requests.get(...).json()
-# …process into columns mag, lat, lon…
+# make it visible to other pages
 st.session_state["quakes"] = df
+
+st.subheader("Recent quakes")
+st.dataframe(df)
