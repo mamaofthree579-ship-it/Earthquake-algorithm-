@@ -5,6 +5,14 @@ from sklearn.linear_model import LogisticRegression
 
 st.title("Trained Harmonic Stress Risk Model")
 
+# ----- optional spreadsheet -----
+uploaded = st.file_uploader("Upload past quakes CSV (columns: date, place, mag)", type="csv")
+if uploaded:
+    df_upload = pd.read_csv(uploaded, parse_dates=["date"])
+    df_upload["date"] = df_upload["date"].dt.strftime("%Y-%m-%d")
+else:
+    df_upload = pd.DataFrame()
+
 today = date.today()
 end = today.isoformat()
 start_recent = (today - timedelta(days=7)).isoformat()
@@ -34,13 +42,13 @@ def fetch(start, end):
         })
     return pd.DataFrame(rows)
 
-# history in 30‑day chunks (no minmag)
 hist_frames = []
 for i in range(3):
     chunk_end = (today - timedelta(days=i*30+7)).isoformat()
     chunk_start = (today - timedelta(days=(i+1)*30+7)).isoformat()
     hist_frames.append(fetch(chunk_start, chunk_end))
 df_hist = pd.concat(hist_frames, ignore_index=True) if hist_frames else pd.DataFrame()
+df_hist = pd.concat([df_hist, df_upload], ignore_index=True) # <-- merge upload
 
 df = fetch(start_recent, end)
 if df.empty:
@@ -71,7 +79,7 @@ if not df_hist.empty:
     coef_S, coef_C, coef_W = model.coef_[0]
     intercept = model.intercept_[0]
 else:
-    coef_S, coef_C, coef_W, intercept = 1.0, 0.4, 0.3, 0.0 # neutral intercept
+    coef_S, coef_C, coef_W, intercept = 1.0, 0.4, 0.3, 0.0
 
 df["I"] = coef_W * df["W"] * df["S_t"] + coef_C * df["C"]
 df["P"] = 1 / (1 + np.exp(-(df["I"] + intercept)))
@@ -87,7 +95,7 @@ future = []
 for i in range(1,4):
     d = (today + timedelta(days=i)).isoformat()
     P_fut = 1 / (1 + math.exp(-(last_I + intercept)))
-    P_fut = max(min(P_fut, 0.99), 0.01) # clip for readability
+    P_fut = max(min(P_fut, 0.99), 0.01)
     future.append({"date":d,"P":P_fut,"Risk": "Low" if P_fut<0.25 else "Moderate" if P_fut<0.5 else "Elevated" if P_fut<0.75 else "Critical"})
 st.subheader("Forward risk")
 st.dataframe(pd.DataFrame(future))
