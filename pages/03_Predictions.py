@@ -4,9 +4,6 @@ from datetime import date, timedelta, datetime
 
 st.title("7-Day Quake Predictions (live)")
 
-# after calculating start/end
-st.caption(f"Window: {start} → {end} (today is {date.today()})")
-
 # ---- live USGS (last 7 days) ----
 today = date.today()
 start = (today - timedelta(days=7)).isoformat()
@@ -29,6 +26,9 @@ for f in raw["features"]:
         "magnitude": p["mag"] or 0
     })
 df = pd.DataFrame(rows)
+
+# after calculating start/end
+st.caption(f"Window: {start} → {end} (today is {date.today()})")
 
 # ---- live flares ----
 flares = requests.get(
