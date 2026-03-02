@@ -3,21 +3,23 @@ import requests, pandas as pd, numpy as np, math
 from datetime import date, timedelta, datetime
 from sklearn.linear_model import LogisticRegression
 
-st.title("Trained Harmonic Stress Risk Model")
+st.title("Nonlinear Diffusion‑Fracture Risk Model")
 
-# ----- physics constants -----
+# ----- new constants -----
 mu_v, kappa_v, eta_v = 0.5, 0.1, 0.05
 D, rho, crit_k = 0.3, 0.2, 0.1
+tau_T, tau_E = 0.05, 0.04 # loading coefficients
+zeta = 0.01 # fracture nonlinearity
+dx = 1.0
+dt = 0.2 # satisfies dt <= dx²/(4D)
 
-# ----- upload with validation -----
+# ----- upload -----
 uploaded = st.file_uploader("Upload past quakes CSV (date,mag,place)", type="csv")
 if uploaded:
     df_hist = pd.read_csv(uploaded)
-    # normalize column names
     df_hist.columns = df_hist.columns.str.lower().str.strip()
-    # require mag; if missing, warn and empty
     if "mag" not in df_hist.columns or "date" not in df_hist.columns:
-        st.warning("CSV must include 'date' and 'mag' columns")
+        st.warning("CSV needs date and mag")
         df_hist = pd.DataFrame()
     else:
         if "place" not in df_hist.columns:
@@ -66,9 +68,12 @@ flares = requests.get(
 ).json()
 flare_days = {item["begin_time"][:10] for item in flares}
 
-# process both frames
+# placeholder tidal and ENSO indices (real app would fetch)
+tidal = np.sin(np.arange(7)*0.8) # synthetic
+enso = np.cos(np.arange(7)*0.3)
+
 frames = []
-for frame in (df_hist, df):
+for idx, frame in enumerate((df_hist, df)):
     if frame.empty:
         continue
     frame = frame.copy()
@@ -81,6 +86,8 @@ for frame in (df_hist, df):
         q = frame["flare"].iloc[i] * frame["mag"].iloc[i]
         dp = kappa_v * q - eta_v * frame["P_v"].iloc[i-1]
         frame["P_v"].iloc[i] = frame["P_v"].iloc[i-1] + dp
+    # oceanic loading (simple synthetic sensitivity)
+    frame["L_o"] = 0.1 * (tau_T * tidal[idx%7] + tau_E * enso[idx%7])
     frame["W"] = 1 + 0.3 * (1 - frame["flare"])
     frame["C"] = 0.6 * frame["flare"]
     frames.append(frame)
@@ -92,24 +99,29 @@ else:
 
 if not df_hist.empty:
     df_hist["target"] = (df_hist["mag"] >= 5).astype(int)
-    X = df_hist[["S_t","C","W","P_v"]].fillna(0)
+    X = df_hist[["S_t","C","W","P_v","L_o"]].fillna(0)
     y = df_hist["target"]
     model = LogisticRegression().fit(X, y)
     coef = model.coef_[0]
     intercept = model.intercept_[0]
 else:
-    coef = np.array([1.0, 0.4, 0.3, mu_v])
+    coef = np.array([1.0, 0.4, 0.3, mu_v, 0.02])
     intercept = 0.0
 
-df["I_raw"] = (coef[3]*df["P_v"] + coef[2]*df["W"]*df["S_t"] + coef[1]*df["C"])
-df["I"] = df["I_raw"].rolling(3, min_periods=1).mean() - rho*df["I_raw"]
-F_total = df["W"]*df["S_t"] + df["C"] + mu_v*df["P_v"]
-F_crit = rho + D*(crit_k**2)
-df["Unstable"] = F_total > F_crit
+# nonlinear update: I += dt*(D∇²I + F - rho I + zeta I³)
+df["F_total"] = (coef[2]*df["W"]*df["S_t"] + coef[1]*df["C"] +
+                 coef[3]*df["P_v"] + coef[4]*df["L_o"])
+df["I"] = 0.0
+for i in range(1, len(df)):
+    lap = 0 # grid proxy → 0 for 1D list
+    forcing = df["F_total"].iloc[i]
+    I_prev = df["I"].iloc[i-1]
+    dI = dt * (D*lap + forcing - rho*I_prev + zeta*(I_prev**3))
+    df["I"].iloc[i] = I_prev + dI
+
 df["P"] = 1 / (1 + np.exp(-(df["I"] + intercept)))
 df["P"] = df["P"].clip(0.01, 0.99)
 df["Risk"] = df["P"].apply(lambda p: "Low" if p<0.25 else "Moderate" if p<0.5 else "Elevated" if p<0.75 else "Critical")
-df["Risk"] = np.where(df["Unstable"], df["Risk"]+" *", df["Risk"])
 
 st.subheader("Recent risk")
 st.dataframe(df[["date","place","mag","P","Risk"]])
