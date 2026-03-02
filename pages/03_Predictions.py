@@ -12,13 +12,16 @@ mags = pd.to_numeric(df["magnitude"], errors="coerce").fillna(0).values
 flares = pd.to_numeric(df["solar_flare_window"], errors="coerce").fillna(0).values
 
 if len(mags) <= 120:
-    st.warning("Need more than 120 rows; add to sample_quakes.csv")
+    st.warning("Need more than 120 rows")
     st.stop()
 
 X = np.array([np.append(mags[i-120:i], flares[i]) for i in range(120, len(mags))])
-y = (mags[120:] > 5.0).astype(int) # lowered threshold for seed data
+y = (mags[120:] > 5.0).astype(int)
 
-st.caption(f"Training on {len(y)} rows, positives: {int(y.sum())}")
+# ensure both classes exist
+if len(np.unique(y)) < 2:
+    st.warning("Seed data only has one class; adjust threshold or add rows")
+    st.stop()
 
 if "model" not in st.session_state:
     clf = RandomForestClassifier(n_estimators=30, random_state=0)
@@ -28,5 +31,7 @@ else:
     clf = st.session_state["model"]
 
 latest = np.append(mags[-120:], flares[-1]).reshape(1, -1)
-prob = clf.predict_proba(latest)[0, 1]
+probs = clf.predict_proba(latest)[0]
+# if only one class trained, pad prob
+prob = probs[1] if len(probs) > 1 else 0.0
 st.metric("Elevated‑risk probability", f"{prob:.0%}")
