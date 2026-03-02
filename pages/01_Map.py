@@ -17,10 +17,5 @@ try:
 except Exception as e:
     st.error(f"Failed to load USGS data: {e}")
 
-# share with Predictions tab
+# share with Predictions tab as ingestion tab
 st.session_state["quakes"] = df
-# make it visible to Predictions tab
-st.session_state["quakes"] = df
-
-st.subheader("Recent quakes")
-st.dataframe(df)
