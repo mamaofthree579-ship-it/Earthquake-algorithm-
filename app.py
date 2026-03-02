@@ -8,17 +8,22 @@ st.set_page_config(layout="wide")
 
 st.title("🌍 IHRAS Production Research Dashboard")
 
-# Cache data
-@st.cache_data(ttl=300)
-def load_data():
-    return fetch_usgs_earthquakes()
+# -------------------------------
+# Safe Data Cleaning (IMPORTANT)
+# -------------------------------
 
-df = load_data()
+df = df.dropna(subset=["longitude", "latitude", "magnitude"])
 
-solver = HarmonicStressSolver()
-stress = solver.step()
+df["magnitude"] = pd.to_numeric(df["magnitude"], errors="coerce")
+df = df[df["magnitude"] > 0]
 
-# Map Visualization
+# Clamp magnitude for Plotly safety
+df["marker_size"] = np.clip(df["magnitude"] * 2, 2, 20)
+
+# -------------------------------
+# Plotly Map Visualization
+# -------------------------------
+
 fig = go.Figure()
 
 if not df.empty:
@@ -26,16 +31,19 @@ if not df.empty:
     fig.add_trace(go.Scattergeo(
         lon=df["longitude"],
         lat=df["latitude"],
-        text=df["place"],
+        text=df["place"] if "place" in df.columns else "",
+        mode="markers",
         marker=dict(
-            size=df["magnitude"] * 2,
-            color=df["magnitude"],
+            size=df["marker_size"].tolist(),  # ← CRITICAL FIX
+            color=df["magnitude"].tolist(),
             colorscale="Viridis",
             showscale=True
         )
     ))
 
-fig.update_geos(projection_type="natural earth")
+fig.update_geos(
+    projection_type="natural earth"
+)
 
 st.plotly_chart(fig, use_container_width=True)
 
