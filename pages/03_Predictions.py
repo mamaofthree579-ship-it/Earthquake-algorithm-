@@ -1,31 +1,40 @@
-# predictive/engine.py
-from pathlib import Path
-import joblib
-import numpy as np
+import streamlit as st
 import pandas as pd
+import joblib
+from pathlib import Path
 from sklearn.ensemble import RandomForestClassifier
+from ingest.usgs import fetch_usgs_week
+from predictive.engine import features_from_harmonics, _mags_to_harmonics_df
 
-MODEL_PATH = Path(__file__).parent / "models" / "initial_rf.joblib"
+st.title("Predictions")
 
-def load_model():
-    try:
-        return joblib.load(MODEL_PATH)
-    except Exception:
-        return None
+@st.cache_data(ttl=600)
+def get_quakes():
+    return fetch_usgs_week()
 
-def predict(feat_df):
-    model = load_model()
-    if model is None:
-        return np.zeros(len(feat_df))
-    return model.predict_proba(feat_df)[:, 1]
+df = get_quakes()
+if df is None or df.empty or "magnitude" not in df.columns:
+    st.error("No quake data.")
+    st.stop()
 
-def score_from_mags(mags):
-    # placeholder feature build — replace with your real logic
-    f = pd.DataFrame([mags])
-    return float(predict(f)[0])
-
-def train_demo_model(X, y):
+# Train on‑the‑fly if model file missing
+MODEL_PATH = Path(__file__).parents[1] / "predictive" / "models" / "initial_rf.joblib"
+if not MODEL_PATH.exists():
+    st.info("Training quick model…")
+    X, y = [], []
+    for i in range(120, len(df)):
+        win = df["magnitude"].iloc[i-120:i].tolist()
+        feats = features_from_harmonics(_mags_to_harmonics_df(win))
+        X.append(feats.iloc[0])
+        y.append(1 if df["magnitude"].iloc[i] > 5.5 else 0)
     clf = RandomForestClassifier(n_estimators=50, random_state=42)
-    clf.fit(X, y)
+    clf.fit(pd.DataFrame(X), pd.Series(y))
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(clf, MODEL_PATH)
+
+# Predict
+model = joblib.load(MODEL_PATH)
+mags = df["magnitude"].tail(240).tolist()
+feats = features_from_harmonics(_mags_to_harmonics_df(mags))
+prob = model.predict_proba(feats)[:, 1][0]
+st.metric("Elevated‑risk probability", f"{prob:.0%}")
