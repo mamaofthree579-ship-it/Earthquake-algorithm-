@@ -1,23 +1,37 @@
 import requests, pandas as pd
+from datetime import datetime
+from pathlib import Path
 
-def fetch_usgs(start, end):
+def fetch_usgs(start, end, out_file):
     url = (
         "https://earthquake.usgs.gov/fdsnws/event/1/query?"
         f"format=geojson&starttime={start}&endtime={end}"
     )
-    data = requests.get(url).json()
+    headers = {"User-Agent": "earthquake-demo-bot/1.0"}
+    r = requests.get(url, headers=headers, timeout=15)
+    print("status:", r.status_code)          # check this in your logs
+    if r.status_code != 200:
+        print("body:", r.text[:200])        # often an HTML error page
+        return
+    try:
+        data = r.json()
+    except Exception as e:
+        print("JSON parse failed:", e)
+        return
+
     rows = []
     for f in data["features"]:
-        props = f["properties"]
+        p = f["properties"]
+        t = datetime.utcfromtimestamp(p["time"] / 1000.0)
         rows.append({
-            "date": props["time"][:10],
-            "time": props["time"][11:19],
-            "place": props["place"],
-            "magnitude": props["mag"],
-            "solar_flare_window": 0  # fill in later if you have flare data
+            "date": t.strftime("%Y-%m-%d"),
+            "time": t.strftime("%H:%M:%S"),
+            "place": p["place"],
+            "magnitude": p["mag"] if p["mag"] is not None else 0,
+            "solar_flare_window": 0
         })
-    return pd.DataFrame(rows)
+    pd.DataFrame(rows).to_csv(out_file, index=False)
+    print(f"saved {len(rows)} rows")
 
-# example: past year
-old_df = fetch_usgs("2024-01-01", "2024-12-31")
-old_df.to_csv("data/sample_quakes.csv", index=False)
+# run once locally:
+fetch_usgs("2024-01-01", "2024-12-31", Path(__file__).parent / "sample_quakes.csv")
