@@ -19,7 +19,7 @@ except Exception as e:
 
 # share with Predictions tab
 st.session_state["quakes"] = df
-# make it visible to other pages
+# make it visible to Predictions tab
 st.session_state["quakes"] = df
 
 st.subheader("Recent quakes")
