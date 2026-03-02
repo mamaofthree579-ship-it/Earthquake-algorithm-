@@ -1,55 +1,62 @@
 import streamlit as st
-import requests, pandas as pd, numpy as np
+import requests, pandas as pd, numpy as np, math
 from datetime import date, timedelta, datetime
 
-st.title("7-Day Quake Predictions (live)")
+st.title("7-Day Quake Risk (flare + transfer)")
 
-# ---- live USGS (last 7 days) ----
+# ---- live USGS ----
 today = date.today()
 start = (today - timedelta(days=7)).isoformat()
 end = today.isoformat()
-resp = requests.get(
+raw = requests.get(
     "https://earthquake.usgs.gov/fdsnws/event/1/query",
-    params={"format": "geojson", "starttime": start, "endtime": end},
-    headers={"User-Agent": "eq-demo"},
+    params={"format":"geojson","starttime":start,"endtime":end},
+    headers={"User-Agent":"eq-demo"},
     timeout=15
-)
-resp.raise_for_status()
-raw = resp.json()
+).json()
+
 rows = []
 for f in raw["features"]:
     p = f["properties"]
-    t = datetime.utcfromtimestamp(p["time"] / 1000)
+    g = f["geometry"]["coordinates"]
     rows.append({
-        "date": t.strftime("%Y-%m-%d"),
+        "date": datetime.utcfromtimestamp(p["time"]/1000).strftime("%Y-%m-%d"),
         "place": p["place"],
-        "magnitude": p["mag"] or 0
+        "mag": p["mag"] or 0,
+        "lon": g[0],
+        "lat": g[1]
     })
 df = pd.DataFrame(rows)
 
-# after calculating start/end
-st.caption(f"Window: {start} → {end} (today is {date.today()})")
-
-# ---- live flares ----
+# ---- flares ----
 flares = requests.get(
     "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json",
     timeout=15
 ).json()
-flare_dates = {item["begin_time"][:10] for item in flares}
-df["solar_flare_window"] = df["date"].isin(flare_dates).astype(int)
+flare_days = {i["begin_time"][:10] for i in flares}
+df["flare"] = df["date"].isin(flare_days).astype(int)
 
-# ---- model ----
-base_rates = {"Alaska":0.9,"California":0.6,"Chile":0.8,"Japan":0.8,
-              "Indonesia":0.9,"Greece":0.5,"Turkey":0.7,"Mexico":0.6}
-w_region, w_flare, w_quant, w_bias = 0.30, 0.25, 0.25, 0.20
-df["magnitude"] = pd.to_numeric(df["magnitude"], errors="coerce").fillna(0)
-quant = df["magnitude"].rank(pct=True)
+# ---- transfer boost ----
+if not df.empty:
+    recent = df.nlargest(1, "mag").iloc[0]
+    def hav(a,b):
+        # km approx
+        return 6371 * math.acos(
+            math.sin(a[0])*math.sin(b[0]) + math.cos(a[0])*math.cos(b[0])*math.cos(a[1]-b[1])
+        )
+    center = (math.radians(recent["lat"]), math.radians(recent["lon"]))
+    df["transfer"] = df.apply(
+        lambda r: (recent["mag"] / (hav(center, (math.radians(r["lat"]), math.radians(r["lon"])))+1)) * df["flare"].max(),
+        axis=1
+    )
+else:
+    df["transfer"] = 0
 
-def prob_row(r):
-    key = next((k for k in base_rates if k.lower() in str(r["place"]).lower()), None)
-    region = base_rates.get(key, 0.3)
-    return min(w_region*region + w_flare*r["solar_flare_window"] + w_quant*quant[r.name] + w_bias, 1.0)
+base = {"Alaska":0.9,"California":0.6,"Chile":0.8,"Japan":0.8,"Indonesia":0.9,"Greece":0.5,"Turkey":0.7,"Mexico":0.6}
+def prob(r):
+    key = next((k for k in base if k.lower() in str(r["place"]).lower()), None)
+    region = base.get(key,0.3)
+    return min(0.30*region + 0.25*r["flare"] + 0.25*r["transfer"] + 0.20, 1.0)
 
-df["elevated_risk_prob"] = df.apply(prob_row, axis=1)
-top = df.nlargest(5, "elevated_risk_prob")[["date","place","magnitude","solar_flare_window","elevated_risk_prob"]]
-st.dataframe(top)
+df["elevated_risk_prob"] = df.apply(prob, axis=1)
+st.dataframe(df.nlargest(5,"elevated_risk_prob")[["date","place","mag","elevated_risk_prob"]])
