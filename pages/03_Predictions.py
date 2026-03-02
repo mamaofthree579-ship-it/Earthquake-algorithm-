@@ -72,3 +72,5 @@ if not risk_places.empty:
         st.write(f"{place} – {count} recent windows")
 else:
     st.write("No single location dominates the risky windows.")
+st.write("Check rows:")
+st.write(df.iloc[[92, 113, 114, 115, 120]][["date", "place", "magnitude"]])
