@@ -4,6 +4,7 @@ import requests
 from datetime import datetime, timedelta
 import numpy as np
 import pywt
+import joblib, os
 
 st.set_page_config(page_title="Geo Signal Simulator", layout="wide")
 st.title("Terrestrial Signal Simulator (Starter)")
@@ -50,3 +51,7 @@ recent = df[df["time"] > datetime.utcnow() - timedelta(hours=24)]
 score = min(1.0, recent["mag"].sum() / 30)
 level = "Low" if score < 0.3 else "Moderate" if score < 0.6 else "Elevated"
 st.metric("24h seismic risk", level)
+
+def load_model():
+    path = "predictive/model.pkl"
+    return joblib.load(path) if os.path.exists(path) else RandomForestClassifier()
