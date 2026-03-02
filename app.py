@@ -5,25 +5,38 @@ import plotly.graph_objects as go
 import requests
 import time
 
-st.set_page_config(layout="wide")
-st.title("🌍 IHRAS v3.1 — Planetary Harmonic Observatory")
+from models.spherical_pde import run_simulation
+from models.monte_carlo import run_ensemble
 
 # -------------------------------------------------
-# DATA INGESTION FUNCTIONS
+# PAGE CONFIG
+# -------------------------------------------------
+
+st.set_page_config(layout="wide")
+st.title("🌍 IHRAS v4.0 — Planetary Harmonic Research Dashboard")
+
+# -------------------------------------------------
+# DATA SOURCES
 # -------------------------------------------------
 
 USGS_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
 KPINDEX_URL = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
 ENSO_URL = "https://psl.noaa.gov/data/correlation/oni.data"
 
+# -------------------------------------------------
+# CACHE FUNCTIONS
+# -------------------------------------------------
+
 @st.cache_data(ttl=300)
 def fetch_earthquakes():
+
     try:
         r = requests.get(USGS_URL, timeout=10)
         r.raise_for_status()
         data = r.json()
 
         records = []
+
         for feature in data["features"]:
             props = feature["properties"]
             coords = feature["geometry"]["coordinates"]
@@ -41,21 +54,30 @@ def fetch_earthquakes():
 
         df = pd.DataFrame(records)
 
-        # ---- HARD CLEANING ----
+        if df.empty:
+            return df
+
+        # ----- HARD CLEANING -----
         df["mag"] = pd.to_numeric(df["mag"], errors="coerce")
         df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
         df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
 
         df = df.replace([np.inf, -np.inf], np.nan)
         df = df.dropna(subset=["mag", "lat", "lon"])
+
         df = df[df["mag"] > 0]
-        df = df[(df["lat"].between(-90, 90)) & (df["lon"].between(-180, 180))]
+        df = df[(df["lat"].between(-90, 90)) &
+                (df["lon"].between(-180, 180))]
 
         return df
 
     except Exception as e:
         st.error(f"Earthquake feed error: {e}")
         return pd.DataFrame()
+
+# -------------------------------------------------
+# ENVIRONMENTAL INDICES
+# -------------------------------------------------
 
 @st.cache_data(ttl=900)
 def fetch_kp_index():
@@ -71,16 +93,23 @@ def fetch_enso_index():
     try:
         df = pd.read_fwf(ENSO_URL, skiprows=1)
         latest = df.iloc[-1]
-        enso = latest[1:].mean()
-        return float(enso)
+        return float(latest[1:].mean())
     except:
         return 0.0
 
+# -------------------------------------------------
+# CELESTIAL HARMONIC FORCE
+# -------------------------------------------------
+
 def celestial_forcing():
+
     t = time.time() / 86400.0
+
     solar_rot = np.cos(2*np.pi*t/27)
     lunar_cycle = 0.5*np.cos(2*np.pi*t/29.5)
-    return solar_rot + lunar_cycle
+    precession = 0.1*np.cos(2*np.pi*t/(26000*365))
+
+    return solar_rot + lunar_cycle + precession
 
 # -------------------------------------------------
 # LOAD DATA
@@ -92,22 +121,24 @@ enso = fetch_enso_index()
 celestial = celestial_forcing()
 
 # -------------------------------------------------
-# SIDEBAR METRICS
+# SIDEBAR PANEL
 # -------------------------------------------------
 
-st.sidebar.header("🌐 Global Indices")
-st.sidebar.metric("ENSO Index", round(enso, 2))
-st.sidebar.metric("Kp Index", round(kp, 2))
-st.sidebar.metric("Celestial Harmonic", round(celestial, 2))
+st.sidebar.header("🌐 Global Monitoring")
+
+st.sidebar.metric("ENSO Index", round(enso, 3))
+st.sidebar.metric("Kp Index", round(kp, 3))
+st.sidebar.metric("Celestial Harmonic", round(celestial, 3))
 
 # -------------------------------------------------
-# EARTHQUAKE MAP (ULTRA-STABLE VERSION)
+# EARTHQUAKE MAP VISUALIZATION
 # -------------------------------------------------
 
-st.header("Live Earthquake Map")
+st.header("🌎 Live Earthquake Map")
 
 if df.empty:
     st.warning("No valid earthquake data available.")
+
 else:
     df["size_scaled"] = np.clip(df["mag"], 0.5, 10)
 
@@ -138,37 +169,64 @@ else:
     st.plotly_chart(fig, use_container_width=True)
 
 # -------------------------------------------------
-# HARMONIC STRESS FORECAST (PLACEHOLDER GRID)
+# SPHERICAL PDE STRESS SIMULATION
 # -------------------------------------------------
 
-st.header("Monte Carlo Stress Projection")
+st.header("🌐 Spherical Stress Diffusion Simulation")
 
-grid = np.random.rand(90, 180)
+stress = run_simulation(
+    celestial_amp=abs(celestial)+0.5,
+    noise_amp=0.05
+)
 
 fig2 = go.Figure(
     data=go.Heatmap(
-        z=grid,
+        z=stress,
         colorscale="Turbo"
     )
 )
 
-fig2.update_layout(height=400)
+fig2.update_layout(height=450)
+
 st.plotly_chart(fig2, use_container_width=True)
 
 # -------------------------------------------------
-# RISK INDEX
+# MONTE CARLO PROBABILITY CONE
 # -------------------------------------------------
 
-stress_mean = np.mean(grid)
-risk = (stress_mean + abs(celestial) + abs(enso) + kp) / 3
+st.header("📡 Monte Carlo Probability Cone")
 
-if risk < 0.5:
-    status = "Low"
-elif risk < 1.0:
-    status = "Moderate"
-elif risk < 2.0:
-    status = "Elevated"
+prob_map = run_ensemble(runs=15)
+
+fig3 = go.Figure(
+    data=go.Heatmap(
+        z=prob_map,
+        colorscale="Inferno"
+    )
+)
+
+fig3.update_layout(height=450)
+
+st.plotly_chart(fig3, use_container_width=True)
+
+# -------------------------------------------------
+# FRACTURE BIFURCATION WARNING
+# -------------------------------------------------
+
+st.header("⚠ System Stability Assessment")
+
+max_stress = float(np.max(np.abs(stress)))
+
+if max_stress > 2.0:
+    st.warning("⚠ Nonlinear Fracture Bifurcation Detected")
+elif max_stress > 1.2:
+    st.info("Moderate Stress Accumulation")
 else:
-    status = "Critical"
+    st.success("System within Stable Basin")
 
-st.subheader(f"🌡 Event Risk Index: {status}")
+risk_index = (np.mean(stress) +
+              abs(celestial) +
+              kp +
+              abs(enso)) / 3
+
+st.subheader(f"🌡 Composite Risk Index: {risk_index:.3f}")
