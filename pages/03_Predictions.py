@@ -1,22 +1,21 @@
-import joblib
-from pathlib import Path
-import numpy as np
+import streamlit as st
+from predictive.engine import score_from_mags
 
-MODEL_PATH = Path(__file__).parent / "models" / "initial_rf.joblib"
+st.title("Predictions")
 
-def load_model():
-    try:
-        return joblib.load(MODEL_PATH)
-    except Exception: # catches ModuleNotFoundError, EOFError, etc.
-        return None # signal “no model”
+# Pull the live DataFrame that the Map tab stored
+df = st.session_state.get("quakes")
+if df is None or df.empty:
+    st.info("Open the Map tab first – it fetches the USGS feed.")
+    st.stop()
 
-def predict(feat_df):
-    model = load_model()
-    if model is None:
-        # fallback: zero probability for every row
-        return np.zeros(len(feat_df))
-    return model.predict_proba(feat_df)[:, 1]
+mag_col = "magnitude" if "magnitude" in df.columns else None
+if not mag_col:
+    st.error("Magnitude column missing.")
+    st.stop()
 
-def score_from_mags(mags):
-    # …build features df called `f`…
-    return float(predict(f)[0])
+mags = df[mag_col].tail(240).tolist()
+prob = score_from_mags(mags)
+
+st.metric("Elevated‑risk probability", f"{prob:.0%}")
+st.caption(f"Based on last {len(mags)} quakes; max {max(mags):.1f}")
