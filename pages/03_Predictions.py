@@ -3,82 +3,71 @@ import requests, pandas as pd, numpy as np, math
 from datetime import date, timedelta, datetime
 from sklearn.linear_model import LogisticRegression
 
-st.title("Harmonic Stress Model + Forward Risk")
+st.title("Trained Harmonic Stress Risk Model")
 
-# fetch 90‑day history
-hist_resp = requests.get(
-    "https://earthquake.usgs.gov/fdsnws/event/1/query",
-    params={"format":"geojson","starttime":(today - timedelta(days=90)).isoformat(),"endtime":start},
-    headers={"User-Agent":"eq-demo"},
-    timeout=15
-).json()
-# build df_hist same as df, then:
-df_hist["target"] = (df_hist["mag"] >= 5).astype(int)
-features = df_hist[["S_t","C","W"]].fillna(0)
-model = LogisticRegression().fit(features, df_hist["target"])
-
-# use learned coefs
-alpha, delta, lam = model.coef_[0]
-intercept = model.intercept_[0]
-# map to I = W*S_t + delta*C, then P = logistic(k*(I - I_c))
-
-# ---- live USGS ----
 today = date.today()
-start = (today - timedelta(days=7)).isoformat()
+start_hist = (today - timedelta(days=90)).isoformat()
+start_recent = (today - timedelta(days=7)).isoformat()
 end = today.isoformat()
-raw = requests.get(
-    "https://earthquake.usgs.gov/fdsnws/event/1/query",
-    params={"format":"geojson","starttime":start,"endtime":end},
-    headers={"User-Agent":"eq-demo"},
-    timeout=15
-).json()
 
-rows = []
-for f in raw["features"]:
-    p = f["properties"]
-    rows.append({
-        "date": datetime.utcfromtimestamp(p["time"]/1000).strftime("%Y-%m-%d"),
-        "place": p["place"],
-        "mag": p["mag"] or 0
-    })
-df = pd.DataFrame(rows)
+def fetch(start, end):
+    r = requests.get(
+        "https://earthquake.usgs.gov/fdsnws/event/1/query",
+        params={"format":"geojson","starttime":start,"endtime":end},
+        headers={"User-Agent":"eq-demo"},
+        timeout=15
+    )
+    r.raise_for_status()
+    rows = []
+    for f in r.json()["features"]:
+        p = f["properties"]
+        rows.append({
+            "date": datetime.utcfromtimestamp(p["time"]/1000).strftime("%Y-%m-%d"),
+            "place": p["place"],
+            "mag": p["mag"] or 0
+        })
+    return pd.DataFrame(rows)
+
+df_hist = fetch(start_hist, start_recent)
+df = fetch(start_recent, end)
 if df.empty:
-    st.write("No quakes")
+    st.write("No recent quakes")
     st.stop()
 
-# ---- cosmic forcing ----
+# cosmic flare flag
 flares = requests.get(
     "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json",
     timeout=15
 ).json()
 flare_days = {i["begin_time"][:10] for i in flares}
-df["flare"] = df["date"].isin(flare_days).astype(int)
+for frame in (df_hist, df):
+    frame["flare"] = frame["date"].isin(flare_days).astype(int)
+    frame["S_t"] = frame["mag"].rolling(3, min_periods=1).apply(lambda x: np.sum(x*np.sin(np.arange(len(x)))), raw=False)
+    frame["W"] = 1 + 0.3 * (1 - frame["flare"]) # lambda=0.3, M0=1
+    frame["C"] = 0.6 * frame["flare"]
 
-# params
-alpha,delta,lam,k,I_c = 0.6,0.4,0.3,1.0,0.5
-M0 = 1.0
+# train
+df_hist["target"] = (df_hist["mag"] >= 5).astype(int)
+X = df_hist[["S_t","C","W"]].fillna(0)
+y = df_hist["target"]
+model = LogisticRegression().fit(X, y)
+coef_S, coef_C, coef_W = model.coef_[0]
+intercept = model.intercept_[0]
 
-df["S_t"] = df["mag"].rolling(3,min_periods=1).apply(lambda x: np.sum(x*np.sin(np.arange(len(x)))), raw=False)
-df["W"] = 1 + lam * (M0 - df["flare"]) / M0
-df["C"] = alpha * df["flare"]
-df["I"] = df["W"] * df["S_t"] + delta * df["C"]
-df["P"] = 1 / (1 + np.exp(-k * (df["I"] - I_c)))
+# apply to recent
+df["I"] = coef_W * df["W"] * df["S_t"] + coef_C * df["C"]
+df["P"] = 1 / (1 + np.exp(-(df["I"] + intercept)))
+df["Risk"] = df["P"].apply(lambda p: "Low" if p<0.25 else "Moderate" if p<0.5 else "Elevated" if p<0.75 else "Critical")
 
-def level(p):
-    return "Low" if p<0.25 else "Moderate" if p<0.5 else "Elevated" if p<0.75 else "Critical"
+st.subheader("Recent risk (trained)")
+st.dataframe(df[["date","place","mag","P","Risk"]])
 
-df["Risk"] = df["P"].apply(level)
-
-# ---- forward projection ----
+# forward
 last_I = df["I"].iloc[-1]
 future = []
 for i in range(1,4):
     d = (today + timedelta(days=i)).isoformat()
-    P_fut = 1 / (1 + math.exp(-k * (last_I - I_c)))
-    future.append({"date":d, "place":"—", "mag":"—", "flare":"—", "P":P_fut, "Risk":level(P_fut)})
-fut = pd.DataFrame(future)
-
-st.subheader("History")
-st.dataframe(df[["date","place","mag","flare","P","Risk"]])
-st.subheader("Forward risk (next 3 days)")
-st.dataframe(fut)
+    P_fut = 1 / (1 + math.exp(-(last_I + intercept)))
+    future.append({"date":d,"P":P_fut,"Risk": "Low" if P_fut<0.25 else "Moderate" if P_fut<0.5 else "Elevated" if P_fut<0.75 else "Critical"})
+st.subheader("Forward risk (trained)")
+st.dataframe(pd.DataFrame(future))
