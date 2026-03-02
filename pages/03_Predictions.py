@@ -1,8 +1,26 @@
 import streamlit as st
 import requests, pandas as pd, numpy as np, math
 from datetime import date, timedelta, datetime
+from sklearn.linear_model import LogisticRegression
 
 st.title("Harmonic Stress Model + Forward Risk")
+
+# fetch 90‑day history
+hist_resp = requests.get(
+    "https://earthquake.usgs.gov/fdsnws/event/1/query",
+    params={"format":"geojson","starttime":(today - timedelta(days=90)).isoformat(),"endtime":start},
+    headers={"User-Agent":"eq-demo"},
+    timeout=15
+).json()
+# build df_hist same as df, then:
+df_hist["target"] = (df_hist["mag"] >= 5).astype(int)
+features = df_hist[["S_t","C","W"]].fillna(0)
+model = LogisticRegression().fit(features, df_hist["target"])
+
+# use learned coefs
+alpha, delta, lam = model.coef_[0]
+intercept = model.intercept_[0]
+# map to I = W*S_t + delta*C, then P = logistic(k*(I - I_c))
 
 # ---- live USGS ----
 today = date.today()
