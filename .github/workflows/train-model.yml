@@ -1,0 +1,42 @@
+name: Train earthquake risk model
+
+on:
+  workflow_dispatch: # lets you run it from the GitHub UI
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          # make sure pandas, scikit-learn, joblib, etc. are listed
+
+      - name: Train model
+        run: |
+          python - << 'PY'
+          from predictive.engine import train_demo_model, features_from_harmonics, _mags_to_harmonics_df
+          import pandas as pd
+          # pull a sample CSV you commit for training, e.g. data/sample_quakes.csv
+          df = pd.read_csv("data/sample_quakes.csv")
+          X, y = [], []
+          for i in range(120, len(df)):
+              win = df["magnitude"].iloc[i-120:i].tolist()
+              feats = features_from_harmonics(_mags_to_harmonics_df(win))
+              X.append(feats.iloc[0])
+              y.append(1 if df["magnitude"].iloc[i] > 5.5 else 0)
+          train_demo_model(pd.DataFrame(X), pd.Series(y))
+          PY
+
+      - name: Upload model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: initial_rf
+          path: predictive/models/initial_rf.joblib
