@@ -1,21 +1,24 @@
 import streamlit as st
+from ingest.usgs import fetch_usgs_week
 from predictive.engine import score_from_mags
 
 st.title("Predictions")
 
-# Pull the live DataFrame that the Map tab stored
-df = st.session_state.get("quakes")
+@st.cache_data(ttl=600)
+def get_quakes():
+    return fetch_usgs_week()
+
+df = get_quakes()
 if df is None or df.empty:
-    st.info("Open the Map tab first – it fetches the USGS feed.")
+    st.error("Couldn’t fetch USGS data.")
     st.stop()
 
-mag_col = "magnitude" if "magnitude" in df.columns else None
-if not mag_col:
-    st.error("Magnitude column missing.")
+if "magnitude" not in df.columns:
+    st.error("Feed missing magnitude column.")
     st.stop()
 
-mags = df[mag_col].tail(240).tolist()
+mags = df["magnitude"].tail(240).tolist()
 prob = score_from_mags(mags)
 
 st.metric("Elevated‑risk probability", f"{prob:.0%}")
-st.caption(f"Based on last {len(mags)} quakes; max {max(mags):.1f}")
+st.caption(f"Using {len(mags)} recent quakes (max {max(mags):.1f})")
