@@ -9,3 +9,4 @@ plotly.express
 torch
 joblib
 tenacity
+plotly
