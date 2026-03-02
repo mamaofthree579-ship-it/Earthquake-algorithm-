@@ -37,4 +37,6 @@ if st.button("Run"):
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
     st.success(f"Wrote {len(df)} rows")
-    st.dataframe(df.head())
+    st.dataframe(df.head(20))  # show 20 rows
+# or
+st.write(df.shape)         # (1000, 5) confirms 1000 rows, 5 columns
