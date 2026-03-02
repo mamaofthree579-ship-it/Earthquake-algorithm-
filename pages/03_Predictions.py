@@ -1,22 +1,30 @@
 import streamlit as st
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
 from pathlib import Path
+from sklearn.ensemble import RandomForestClassifier
 
 st.title("Predictions")
 
-# grab live data if Map ran
+# historic seed
+historic = pd.read_csv(
+    Path(__file__).parents[1] / "data" / "sample_quakes.csv"
+)
+
+# live data if Map tab ran
 live = st.session_state.get("quakes")
+if live is not None:
+    live = live.copy()
+    live["solar_flare_window"] = 0 # assume no flag for live feed
+    df = pd.concat([historic, live], ignore_index=True)
+else:
+    df = historic
 
-# load historic sample
-historic = pd.read_csv(Path(__file__).parents[1] / "data" / "sample_quakes.csv")
-
-df = pd.concat([historic, live], ignore_index=True) if live is not None else historic
-
-mags = df["magnitude"].tolist()
+# build windows
 X, y = [], []
-for i in range(120, len(mags)):
-    X.append(mags[i-120:i])
+mags = df["magnitude"].tolist()
+flares = df["solar_flare_window"].tolist()
+for i in range(120, len(df)):
+    X.append(mags[i-120:i] + [flares[i]]) # 120 mags + flare flag
     y.append(1 if mags[i] > 5.5 else 0)
 
 if "model" not in st.session_state:
@@ -26,5 +34,6 @@ if "model" not in st.session_state:
 else:
     clf = st.session_state["model"]
 
-prob = clf.predict_proba(pd.DataFrame([mags[-120:]]))[0, 1]
+latest = mags[-120:] + [flares[-1]]
+prob = clf.predict_proba(pd.DataFrame([latest]))[0, 1]
 st.metric("Elevated‑risk probability", f"{prob:.0%}")
