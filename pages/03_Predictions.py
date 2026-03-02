@@ -6,15 +6,19 @@ from sklearn.linear_model import LogisticRegression
 st.title("Trained Harmonic Stress Risk Model")
 
 today = date.today()
-start_hist = (today - timedelta(days=90)).isoformat() # 90 days ago
-start_recent = (today - timedelta(days=7)).isoformat() # 7 days ago
+start_hist = (today - timedelta(days=90)).isoformat()
+start_recent = (today - timedelta(days=7)).isoformat()
 end = today.isoformat()
 
 def fetch(start, end):
     try:
         r = requests.get(
             "https://earthquake.usgs.gov/fdsnws/event/1/query",
-            params={"format":"geojson","starttime":start,"endtime":end},
+            params={
+                "format":"geojson",
+                "starttime": f"{start}T00:00:00",
+                "endtime": f"{end}T23:59:59"
+            },
             headers={"User-Agent":"eq-demo"},
             timeout=15
         )
@@ -55,7 +59,6 @@ for frame in (df_hist, df):
     frame["W"] = 1 + 0.3 * (1 - frame["flare"])
     frame["C"] = 0.6 * frame["flare"]
 
-# train or fallback
 if not df_hist.empty:
     df_hist["target"] = (df_hist["mag"] >= 5).astype(int)
     X = df_hist[["S_t","C","W"]].fillna(0)
@@ -73,7 +76,6 @@ df["Risk"] = df["P"].apply(lambda p: "Low" if p<0.25 else "Moderate" if p<0.5 el
 st.subheader("Recent risk")
 st.dataframe(df[["date","place","mag","P","Risk"]])
 
-# forward
 last_I = df["I"].iloc[-1]
 future = []
 for i in range(1,4):
