@@ -1,12 +1,3 @@
-"""
-Predictive Correlation Engine stub.
-This file provides a small, explainable pipeline skeleton:
-- transform harmonics into features
-- apply a simple classifier/regressor (placeholder)
-- store interface for model training and scoring
-
-For production, separate training & inference code, use MLflow/DVC, and implement robust validation.
-"""
 # predictive/engine.py
 import os, joblib
 import numpy as np, pandas as pd
