@@ -4,12 +4,6 @@ import pandas as pd
 
 st.title("Map — Recent Earthquakes & Observations")
 
-# ---- main UI ----
-df = load_usgs()
-
-# share with Predictions tab
-st.session_state["quakes"] = df
-
 st.write("This page visualizes recent USGS earthquakes from the 7-day feed.")
 
 try:
@@ -22,3 +16,6 @@ try:
         st.info("No earthquake data available")
 except Exception as e:
     st.error(f"Failed to load USGS data: {e}")
+
+# share with Predictions tab
+st.session_state["quakes"] = df
