@@ -24,6 +24,21 @@ if st.button("Fetch 2023 quakes"):
             "magnitude": p["mag"] if p["mag"] is not None else 0,
             "solar_flare_window": 0
         })
+
+if st.button("Fetch 2023 quakes"):
+    url = (
+        "https://earthquake.usgs.gov/fdsnws/event/1/query?"
+        "format=geojson&starttime=2023-01-01&endtime=2023-12-31"
+    )
+    try:
+        r = requests.get(url, timeout=10, headers={"User-Agent": "eq-demo"})
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        st.error(f"USGS request failed: {e}")
+        st.stop()
+
+    # …rest of parsing logic…    
     old_df = pd.DataFrame(rows)
     csv_path = Path(__file__).parents[1] / "data" / "sample_quakes.csv"
     old_df.to_csv(csv_path, index=False)
