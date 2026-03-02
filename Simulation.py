@@ -10,6 +10,7 @@ st.title("Terrestrial Signal Simulator (Starter)")
 
 # 1) Ingest USGS daily quakes
 @st.cache_data(ttl=900)
+@st.cache_data(ttl=900)
 def load_usgs():
     today = datetime.utcnow()
     week_ago = today - timedelta(days=7)
@@ -17,16 +18,20 @@ def load_usgs():
         "https://earthquake.usgs.gov/fdsnws/event/1/query.geojson"
         f"?starttime={week_ago.date()}&endtime={today.date()}&minmagnitude=4"
     )
-    r = requests.get(url)
-    data = r.json()
-    rows = [
-        {"time": f["properties"]["time"], "mag": f["properties"]["mag"],
-         "place": f["properties"]["place"]}
-        for f in data["features"]
-    ]
-    df = pd.DataFrame(rows)
-    df["time"] = pd.to_datetime(df["time"], unit="ms")
-    return df
+    data = requests.get(url).json()
+    rows = []
+    for f in data["features"]:
+        lon, lat, _ = f["geometry"]["coordinates"]
+        rows.append({
+            "time": pd.to_datetime(f["properties"]["time"], unit="ms"),
+            "mag": f["properties"]["mag"],
+            "place": f["properties"]["place"],
+            "lat": lat, "lon": lon
+        })
+    return pd.DataFrame(rows)
+
+df = load_usgs()
+st.map(df[["lat", "lon"]])
 
 df = load_usgs()
 st.subheader("Recent M4+ quakes")
