@@ -11,13 +11,17 @@ st.title("🌍 IHRAS Production Research Dashboard")
 # Safe Data Cleaning (IMPORTANT)
 # -------------------------------
 
-df = df.dropna(subset=["longitude", "latitude", "magnitude"])
+# Load data FIRST
+df = load_data()   # ← IMPORTANT
 
-df["magnitude"] = pd.to_numeric(df["magnitude"], errors="coerce")
-df = df[df["magnitude"] > 0]
+# Then clean data
+if df is not None and not df.empty:
+    df = df.dropna(subset=["longitude", "latitude", "magnitude"])
+    df["magnitude"] = pd.to_numeric(df["magnitude"], errors="coerce")
+    df = df[df["magnitude"] > 0]
 
-# Clamp magnitude for Plotly safety
-df["marker_size"] = np.clip(df["magnitude"] * 2, 2, 20)
+else:
+    df = pd.DataFrame(columns=["longitude","latitude","magnitude","place"])
 
 # -------------------------------
 # Plotly Map Visualization
