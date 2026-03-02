@@ -1,88 +1,163 @@
 import streamlit as st
-import plotly.express as px
+import pandas as pd
 import numpy as np
-from ingestion.usgs import fetch_earthquakes
-from ingestion.noaa import fetch_enso_index
-from ingestion.solar import fetch_kp_index
-from utils.harmonics import celestial_forcing
+import plotly.graph_objects as go
+import requests
+import time
+
+st.set_page_config(layout="wide")
+st.title("🌍 IHRAS v3.1 — Planetary Harmonic Observatory")
+
+# -------------------------------------------------
+# DATA INGESTION FUNCTIONS
+# -------------------------------------------------
+
+USGS_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
+KPINDEX_URL = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+ENSO_URL = "https://psl.noaa.gov/data/correlation/oni.data"
+
+@st.cache_data(ttl=300)
+def fetch_earthquakes():
+    try:
+        r = requests.get(USGS_URL, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+
+        records = []
+        for feature in data["features"]:
+            props = feature["properties"]
+            coords = feature["geometry"]["coordinates"]
+
+            if props["mag"] is None:
+                continue
+
+            records.append({
+                "mag": props["mag"],
+                "place": props["place"],
+                "lat": coords[1],
+                "lon": coords[0],
+                "depth": coords[2]
+            })
+
+        df = pd.DataFrame(records)
+
+        # ---- HARD CLEANING ----
+        df["mag"] = pd.to_numeric(df["mag"], errors="coerce")
+        df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
+        df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
+
+        df = df.replace([np.inf, -np.inf], np.nan)
+        df = df.dropna(subset=["mag", "lat", "lon"])
+        df = df[df["mag"] > 0]
+        df = df[(df["lat"].between(-90, 90)) & (df["lon"].between(-180, 180))]
+
+        return df
+
+    except Exception as e:
+        st.error(f"Earthquake feed error: {e}")
+        return pd.DataFrame()
+
+@st.cache_data(ttl=900)
+def fetch_kp_index():
+    try:
+        r = requests.get(KPINDEX_URL, timeout=10)
+        data = r.json()
+        return float(data[-1][1])
+    except:
+        return 0.0
+
+@st.cache_data(ttl=3600)
+def fetch_enso_index():
+    try:
+        df = pd.read_fwf(ENSO_URL, skiprows=1)
+        latest = df.iloc[-1]
+        enso = latest[1:].mean()
+        return float(enso)
+    except:
+        return 0.0
+
+def celestial_forcing():
+    t = time.time() / 86400.0
+    solar_rot = np.cos(2*np.pi*t/27)
+    lunar_cycle = 0.5*np.cos(2*np.pi*t/29.5)
+    return solar_rot + lunar_cycle
+
+# -------------------------------------------------
+# LOAD DATA
+# -------------------------------------------------
+
+df = fetch_earthquakes()
+kp = fetch_kp_index()
+enso = fetch_enso_index()
+celestial = celestial_forcing()
+
+# -------------------------------------------------
+# SIDEBAR METRICS
+# -------------------------------------------------
+
+st.sidebar.header("🌐 Global Indices")
+st.sidebar.metric("ENSO Index", round(enso, 2))
+st.sidebar.metric("Kp Index", round(kp, 2))
+st.sidebar.metric("Celestial Harmonic", round(celestial, 2))
+
+# -------------------------------------------------
+# EARTHQUAKE MAP (ULTRA-STABLE VERSION)
+# -------------------------------------------------
 
 st.header("Live Earthquake Map")
 
 if df.empty:
-    st.warning("No earthquake data available.")
+    st.warning("No valid earthquake data available.")
 else:
-    # ---------- HARD TYPE ENFORCEMENT ----------
-    df = df.copy()
+    df["size_scaled"] = np.clip(df["mag"], 0.5, 10)
 
-    df["mag"] = pd.to_numeric(df["mag"], errors="coerce")
-    df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
-    df["lon"] = pd.to_numeric(df["lon"], errors="coerce")
+    fig = go.Figure()
 
-    df = df.replace([np.inf, -np.inf], np.nan)
-    df = df.dropna(subset=["mag", "lat", "lon"])
-
-    df = df[df["mag"] > 0]
-    df = df[(df["lat"].between(-90, 90)) & (df["lon"].between(-180, 180))]
-
-    # ---------- SAFE SIZE SCALING ----------
-    df["size_scaled"] = np.clip(df["mag"], 0.1, 10)
-
-    if df.empty:
-        st.warning("No valid earthquake data after cleaning.")
-    else:
-        fig = px.scatter_geo(
-            df,
-            lat="lat",
-            lon="lon",
-            size="size_scaled",
-            hover_name="place",
-            projection="natural earth",
-            size_max=12
+    fig.add_trace(go.Scattergeo(
+        lon=df["lon"],
+        lat=df["lat"],
+        text=df["place"],
+        marker=dict(
+            size=df["size_scaled"],
+            color=df["size_scaled"],
+            colorscale="Viridis",
+            showscale=True,
+            colorbar=dict(title="Magnitude")
         )
+    ))
 
-        fig.update_layout(
-            geo=dict(
-                showland=True,
-                landcolor="rgb(240,240,240)",
-                showcountries=True
-            )
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-# -------------------------
-# Earthquake Map
-# -------------------------
-
-st.header("Live Earthquake Map")
-
-if df.empty:
-    st.warning("No earthquake data available.")
-else:
-    fig = px.scatter_geo(
-        df,
-        lat="lat",
-        lon="lon",
-        size="mag",
-        hover_name="place",
-        color="mag",
-        projection="natural earth",
-        size_max=12
+    fig.update_geos(
+        projection_type="natural earth",
+        showland=True,
+        landcolor="rgb(240,240,240)",
+        showcountries=True
     )
+
+    fig.update_layout(height=600)
+
     st.plotly_chart(fig, use_container_width=True)
 
-# -------------------------
-# Harmonic Stress Forecast
-# -------------------------
+# -------------------------------------------------
+# HARMONIC STRESS FORECAST (PLACEHOLDER GRID)
+# -------------------------------------------------
 
 st.header("Monte Carlo Stress Projection")
 
-grid = np.random.rand(90,180)
-fig2 = px.imshow(grid, origin="lower")
+grid = np.random.rand(90, 180)
+
+fig2 = go.Figure(
+    data=go.Heatmap(
+        z=grid,
+        colorscale="Turbo"
+    )
+)
+
+fig2.update_layout(height=400)
 st.plotly_chart(fig2, use_container_width=True)
 
-# -------------------------
-# Risk Index Calculation
-# -------------------------
+# -------------------------------------------------
+# RISK INDEX
+# -------------------------------------------------
 
 stress_mean = np.mean(grid)
 risk = (stress_mean + abs(celestial) + abs(enso) + kp) / 3
