@@ -1,57 +1,18 @@
-# predictive/engine.py
-import os, joblib
-import numpy as np, pandas as pd
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier
+import streamlit as st
+import pandas as pd
+from predictive.engine import score_from_mags
 
-MODEL_PATH = os.environ.get("IHRAS_MODEL_PATH", "models/initial_rf.joblib")
+st.title("Predictions")
 
-# ---- features ----
-def _mags_to_harmonics_df(mags):
-    mags = np.asarray(mags, dtype=float)
-    if mags.size < 16:
-        return pd.DataFrame({"freq": [0.0], "amp": [0.0]})
-    c = mags - mags.mean()
-    amp = np.abs(np.fft.rfft(c))
-    freq = np.fft.rfftfreq(c.size, d=1.0)
-    return pd.DataFrame({"freq": freq, "amp": amp})
+df: pd.DataFrame | None = st.session_state.get("quakes")
 
-def features_from_harmonics(harmonics_df):
-    amp = harmonics_df["amp"].values
-    feats = {
-        "amp_mean": float(np.mean(amp)),
-        "amp_max": float(np.max(amp)),
-        "amp_std": float(np.std(amp)),
-        "peak_freq_idx": int(np.argmax(amp))
-    }
-    return pd.DataFrame([feats])
-
-# ---- model ops ----
-def train_demo_model(X, y):
-    scaler = StandardScaler()
-    Xs = scaler.fit_transform(X)
-    clf = RandomForestClassifier(n_estimators=50, random_state=42)
-    clf.fit(Xs, y)
-    os.makedirs(os.path.dirname(MODEL_PATH) or ".", exist_ok=True)
-    joblib.dump({"scaler": scaler, "model": clf}, MODEL_PATH)
-    return MODEL_PATH
-
-def load_model(path=None):
-    path = path or MODEL_PATH
-    if not os.path.exists(path):
-        return None
-    return joblib.load(path)
-
-def predict(features_df):
-    art = load_model()
-    if art is None:
-        # no artifact yet → return neutral probability
-        return np.array([0.0])
-    Xs = art["scaler"].transform(features_df)
-    return art["model"].predict_proba(Xs)[:, 1]
-
-# convenience for the predictions tab
-def score_from_mags(mags):
-    h = _mags_to_harmonics_df(mags)
-    f = features_from_harmonics(h)
-    return float(predict(f)[0])
+if df is None or df.empty:
+    st.warning("No quake data in session. Load some on the Ingestion tab first.")
+else:
+    mags = df["mag"].tail(240).tolist()
+    try:
+        prob = score_from_mags(mags)
+        st.metric("Elevated-risk probability", f"{prob:.0%}")
+    except Exception as exc:
+        st.error("Prediction step failed.")
+        st.code(f"{type(exc).__name__}: {exc}")
