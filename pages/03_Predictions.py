@@ -1,76 +1,72 @@
 import streamlit as st
+from pathlib import Path
 import pandas as pd
 import numpy as np
-from pathlib import Path
-from sklearn.ensemble import RandomForestClassifier
+import requests
+from datetime import datetime
+from sklearn.linear_model import LogisticRegression
 
-st.title("Predictions")
+st.header("Predictions")
 
-# ---- load data ----
-historic = pd.read_csv(Path(__file__).parents[1] / "data" / "sample_quakes.csv")
-live = st.session_state.get("quakes")
-df = pd.concat([historic, live], ignore_index=True) if live is not None else historic
+csv_path = Path(__file__).parents[1] / "data" / "sample_quakes.csv"
 
-mags = pd.to_numeric(df["magnitude"], errors="coerce").fillna(0).values
-flares = pd.to_numeric(df["solar_flare_window"], errors="coerce").fillna(0).values
+# ---- optional fetch ----
+if st.button("Load 2023 USGS data"):
+    url = (
+        "https://earthquake.usgs.gov/fdsnws/event/1/query?"
+        "format=geojson&starttime=2023-01-01&endtime=2023-12-31"
+    )
+    try:
+        r = requests.get(url, timeout=10, headers={"User-Agent": "eq-demo"})
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        st.error(f"USGS fetch failed: {e}")
+    else:
+        rows = []
+        for f in data["features"]:
+            p = f["properties"]
+            t = datetime.utcfromtimestamp(p["time"] / 1000.0)
+            rows.append({
+                "date": t.strftime("%Y-%m-%d"),
+                "time": t.strftime("%H:%M:%S"),
+                "place": p["place"],
+                "magnitude": p["mag"] if p["mag"] is not None else 0,
+                "solar_flare_window": 0
+            })
+        pd.DataFrame(rows).to_csv(csv_path, index=False)
+        st.success("Historical data written")
 
-if len(mags) <= 120:
-    st.warning("Need >120 rows")
+# ---- model ----
+df = pd.read_stem(csv_path)
+if len(df) < 130:
+    st.warning("Need ~130 rows for stable training")
     st.stop()
 
-# ---- fractal roughness helper ----
-def hurst_exponent(series):
-    n = len(series)
-    if n < 3:
-        return 0.0
-    var1 = np.var(series[1:] - series[:-1])
-    var2 = np.var(series[2:] - series[:-2])
-    return 0.5 * np.log2(var2 / var1 + 1e-9)
-
-# ---- build training matrix ----
+mags = df["magnitude"].values.astype(float)
+F = df["solar_flare_window"].values.astype(int)
 X, y = [], []
 for i in range(120, len(mags)):
-    window = mags[i-120:i]
-    h = hurst_exponent(window)
-    X.append(np.append(np.append(window, flares[i]), h))
-    y.append(1 if mags[i] > 5.5 else 0)
-
+    X.append([np.mean(mags[i-120:i]), np.std(mags[i-120:i]), F[i]])
+    y.append(int(mags[i] > 5.5))
 X = np.array(X)
 y = np.array(y)
-
-if len(np.unique(y)) < 2:
-    st.warning("Add varied magnitudes")
+if len(set(y)) < 2:
+    st.error("No class variety – check magnitudes")
     st.stop()
 
-# ---- train / fetch model ----
-if "model" not in st.session_state:
-    clf = RandomForestClassifier(n_estimators=30, random_state=0)
-    clf.fit(X, y)
-    st.session_state["model"] = clf
-else:
-    clf = st.session_state["model"]
-
-# ---- predict latest ----
-latest_window = mags[-120:]
-h_latest = hurst_exponent(latest_window)
-latest = np.append(np.append(latest_window, flares[-1]), h_latest).reshape(1, -1)
-prob = clf.predict_proba(latest)[0, 1]
+clf = LogisticRegression(solver="lbfgs").fit(X, y)
+prob = clf.predict_proba([[mags[-120:].mean(), mags[-120:].std(), F[-1]]])[0][1]
 
 st.metric("Elevated‑risk probability", f"{prob:.0%}")
 
-# ---- where is the risk? ----
-# predict risk for each historic window
+# ---- top places ----
 probs = clf.predict_proba(X)[:, 1]
-high_idx = np.where(probs > 0.5)[0] # windows flagged as risky
-
-# map back to rows in the original df (offset by 120)
-risk_places = df.iloc[high_idx + 120]["place"].value_counts().head(5)
-
-st.subheader("Top places in recent risky windows")
-if not risk_places.empty:
-    for place, count in risk_places.items():
-        st.write(f"{place} – {count} recent windows")
+high_idx = np.where(probs > 0.5)[0]
+if high_idx.size:
+    top = df.iloc[high_idx + 120]["place"].value_counts().head(5)
+    st.subheader("Top places in recent risky windows")
+    for place, cnt in top.items():
+        st.write(f"{place} – {cnt} recent windows")
 else:
-    st.write("No single location dominates the risky windows.")
-st.write("Check rows:")
-st.write(df.iloc[[92, 113, 114, 115, 120]][["date", "place", "magnitude"]])
+    st.write("No high‑risk windows found")
