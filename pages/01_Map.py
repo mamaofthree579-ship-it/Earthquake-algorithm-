@@ -10,10 +10,6 @@ df = load_usgs()
 # share with Predictions tab
 st.session_state["quakes"] = df
 
-# quick sanity check
-st.map(df[["lat", "lon"]])
-st.write(f"Loaded {len(df)} quakes (last {df['time'].min().date()} to {df['time'].max().date()})")
-
 st.write("This page visualizes recent USGS earthquakes from the 7-day feed.")
 
 try:
