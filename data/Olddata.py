@@ -4,22 +4,19 @@ import requests, pandas as pd
 from datetime import datetime
 from pathlib import Path
 
-st.title("Fetch USGS data → CSV")
+st.title("Fetch USGS → CSV")
 
-# input dates
-start = st.text_input("Start (YYYY‑MM‑DD)", "2024‑01‑01")
-end   = st.text_input("End (YYYY‑MM‑DD)",   "2024‑01‑07")
+# force ASCII hyphen, add time to be safe
+start = st.text_input("Start", "2024-01-01T00:00:00")
+end   = st.text_input("End",   "2024-01-07T23:59:59")
 
 if st.button("Run"):
-    # --- same request that worked in test pool ---
     url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
     params = {"format": "geojson", "starttime": start, "endtime": end}
     r = requests.get(url, params=params, headers={"User-Agent": "eq-demo"}, timeout=15)
-    st.write("HTTP status:", r.status_code)
-
+    st.write("status:", r.status_code)
     if r.status_code != 200:
-        st.error("Request failed")
-        st.write(r.text[:200])
+        st.error(r.text[:200])
         st.stop()
 
     raw = r.json()
@@ -36,11 +33,8 @@ if st.button("Run"):
         })
 
     df = pd.DataFrame(rows)
-    if df.empty:
-        st.warning("No data returned")
-    else:
-        out = Path("data/sample_quakes.csv")
-        out.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(out, index=False)
-        st.success(f"Saved {len(df)} rows")
-        st.dataframe(df.head())
+    out = Path("data/sample_quakes.csv")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out, index=False)
+    st.success(f"Wrote {len(df)} rows")
+    st.dataframe(df.head())
