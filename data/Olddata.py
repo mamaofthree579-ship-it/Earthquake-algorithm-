@@ -1,38 +1,46 @@
+# pages/02_Load_Data.py
+import streamlit as st
 import requests, pandas as pd
 from datetime import datetime
 from pathlib import Path
 
-url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
-params = {"format": "geojson", "starttime": "2024-01-01", "endtime": "2024-01-02"}
-print("Requesting…")
-r = requests.get(url, params=params, headers={"User-Agent": "eq-demo"}, timeout=15)
-print("HTTP", r.status_code)
-print("Content-type:", r.headers.get("content-type"))
+st.title("Fetch USGS data → CSV")
 
-# bail out early if not JSON
-if "application/json" not in r.headers.get("content-type", ""):
-    print("Got non‑JSON, body preview:")
-    print(r.text[:300])
-    raise SystemExit
+# input dates
+start = st.text_input("Start (YYYY‑MM‑DD)", "2024‑01‑01")
+end   = st.text_input("End (YYYY‑MM‑DD)",   "2024‑01‑07")
 
-raw = r.json()
-print("Count in metadata:", raw.get("metadata", {}).get("count"))
+if st.button("Run"):
+    # --- same request that worked in test pool ---
+    url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+    params = {"format": "geojson", "starttime": start, "endtime": end}
+    r = requests.get(url, params=params, headers={"User-Agent": "eq-demo"}, timeout=15)
+    st.write("HTTP status:", r.status_code)
 
-rows = []
-for f in raw.get("features", []):
-    p = f["properties"]
-    t = datetime.utcfromtimestamp(p["time"] / 1000.0)
-    rows.append({
-        "date": t.strftime("%Y-%m-%d"),
-        "time": t.strftime("%H:%M:%S"),
-        "place": p["place"],
-        "magnitude": p["mag"] or 0,
-        "solar_flare_window": 0
-    })
+    if r.status_code != 200:
+        st.error("Request failed")
+        st.write(r.text[:200])
+        st.stop()
 
-print("Rows built:", len(rows))
-df = pd.DataFrame(rows)
-out = Path("data/sample_quakes.csv")
-out.parent.mkdir(parents=True, exist_ok=True)
-df.to_csv(out, index=False)
-print("Wrote CSV to", out.resolve())
+    raw = r.json()
+    rows = []
+    for f in raw["features"]:
+        p = f["properties"]
+        t = datetime.utcfromtimestamp(p["time"] / 1000.0)
+        rows.append({
+            "date": t.strftime("%Y-%m-%d"),
+            "time": t.strftime("%H:%M:%S"),
+            "place": p["place"],
+            "magnitude": p["mag"] or 0,
+            "solar_flare_window": 0
+        })
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        st.warning("No data returned")
+    else:
+        out = Path("data/sample_quakes.csv")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(out, index=False)
+        st.success(f"Saved {len(df)} rows")
+        st.dataframe(df.head())
