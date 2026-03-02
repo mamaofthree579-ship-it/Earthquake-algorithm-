@@ -56,6 +56,11 @@ h_latest = hurst_exponent(latest_window)
 latest = np.append(np.append(latest_window, flares[-1]), h_latest).reshape(1, -1)
 prob = clf.predict_proba(latest)[0, 1]
 
+# in your predictions page, when loading:
+df = pd.read_csv("data/sample_quakes.csv")
+df["magnitude"] = pd.to_numeric(df["magnitude"], errors="coerce").fillna(0)
+st.write("Unique mags:", sorted(df["magnitude"].unique())[:10])
+
 st.metric("Elevated‑risk probability", f"{prob:.0%}")
 # ---- where might it be? ----
 # grab the last 120 rows' places
