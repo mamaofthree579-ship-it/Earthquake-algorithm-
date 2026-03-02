@@ -75,6 +75,43 @@ def fetch_earthquakes():
         st.error(f"Earthquake feed error: {e}")
         return pd.DataFrame()
 
+class UltimateIHRASSolver:
+
+    def __init__(self,
+                 diffusion=0.2,
+                 damping=0.3,
+                 fracture=0.02):
+
+        self.D = diffusion
+        self.lambda_d = damping
+        self.kappa = fracture
+
+        self.field = np.random.normal(0,0.01,(90,180))
+
+    def forcing(self, t):
+
+        solar = np.cos(2*np.pi*t/27)
+        lunar = 0.5*np.cos(2*np.pi*t/29.5)
+
+        return solar + lunar
+
+    def step(self, dt=0.01):
+
+        lap = np.gradient(self.field)[0]
+
+        nonlinear = self.kappa * self.field**3
+        noise = 0.05 * np.random.randn(*self.field.shape)
+
+        self.field += dt * (
+            self.D * lap
+            - self.lambda_d * self.field
+            + nonlinear
+            + self.forcing(time.time())
+            + noise
+        )
+
+        return self.field
+        
 # -------------------------------------------------
 # ENVIRONMENTAL INDICES
 # -------------------------------------------------
@@ -230,3 +267,4 @@ risk_index = (np.mean(stress) +
               abs(enso)) / 3
 
 st.subheader(f"🌡 Composite Risk Index: {risk_index:.3f}")
+
