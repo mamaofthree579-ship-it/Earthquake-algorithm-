@@ -51,6 +51,16 @@ txt = requests.get(enso_url, timeout=10).text
 # last numeric value in file
 enso_val = float([s for s in txt.split() if s.replace('.','',1).replace('-','',1).isdigit()][-1])
 
+# ENSO fetch with safe parsing
+enso_url = "https://psl.noaa.gov/enso/data/nino34.data"
+try:
+    txt = requests.get(enso_url, timeout=10).text
+    # extract all numbers, take the last one
+    nums = [float(x) for x in txt.replace('\n',' ').split() if x.replace('.','',1).replace('-','',1).isdigit()]
+    enso_val = nums[-1] if nums else 0.0
+except Exception:
+    enso_val = 0.0
+    
 sigma = np.random.normal(0,0.01,N)
 sigmas=[]
 for n in range(len(df)):
