@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ihras-research-node
+spec:
+  containers:
+  - name: research-app
+    image: ihras-platform:latest
+    ports:
+    - containerPort: 8501
