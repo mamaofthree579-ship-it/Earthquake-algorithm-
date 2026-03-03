@@ -6,79 +6,75 @@ from ingestion.usgs_stream import fetch_usgs_stream
 from core.solver_kernel import SolverKernel
 from visualization.maps import render_global_map
 
-# -----------------------------
+# ------------------------------
 # Page Configuration
-# -----------------------------
+# ------------------------------
 
 st.set_page_config(
-    page_title="IHRAS Scientific Research Institute",
+    page_title="IHRAS Next-Generation Research Lab",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# -----------------------------
-# Scientific Theme Styling
-# -----------------------------
+# ------------------------------
+# Scientific Dark Theme Styling
+# ------------------------------
 
 st.markdown("""
 <style>
 
 body {
-    background-color: #0E1117;
+    background-color: #0B0F19;
 }
 
-div.stButton > button {
-    width: 100%;
-}
-
-.metric-card {
-    padding: 15px;
-    border-radius: 10px;
-    background-color: #161B22;
-    box-shadow: 0px 0px 8px rgba(0,0,0,0.4);
+.metric-box {
+    padding: 20px;
+    border-radius: 12px;
+    background-color: #111827;
+    box-shadow: 0px 0px 10px rgba(0,0,0,0.5);
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------
-# Sidebar Control Panel
-# -----------------------------
+# ------------------------------
+# Sidebar Research Control Panel
+# ------------------------------
 
-st.sidebar.title("🌍 IHRAS Research Control")
+st.sidebar.title("🌍 IHRAS Research Laboratory")
 
-mode = st.sidebar.radio(
-    "Dashboard Mode",
+mode = st.sidebar.selectbox(
+    "Scientific Workspace",
     [
-        "Scientific Overview",
-        "Simulation Kernel Monitor",
-        "Federation Cluster Status",
-        "Dataset Exploration"
+        "Research Overview",
+        "Simulation Engine",
+        "Cluster Telemetry",
+        "Dataset Laboratory"
     ]
 )
 
 st.sidebar.markdown("---")
 
-# -----------------------------
-# Load Streaming Research Data
-# -----------------------------
+# ------------------------------
+# Streaming Research Data
+# ------------------------------
 
 df = fetch_usgs_stream()
 
-# -----------------------------
-# Scientific Overview Dashboard
-# -----------------------------
+# ------------------------------
+# Research Overview Workspace
+# ------------------------------
 
-if mode == "Scientific Overview":
+if mode == "Research Overview":
 
-    st.title("🌌 Open Science Research Platform")
+    st.title("🌌 Scientific Discovery Dashboard")
 
     col1, col2 = st.columns(2)
 
-    # Global Event Map
+    # Global Event Map Panel
     with col1:
 
-        st.subheader("🗺️ Global Research Event Distribution")
+        st.subheader("🗺️ Global Research Activity Map")
 
         if not df.empty:
 
@@ -93,13 +89,12 @@ if mode == "Scientific Overview":
         else:
             st.warning("Research stream unavailable")
 
-    # Kernel Activity Metric
+    # Scientific Kernel Activity Gauge
     with col2:
 
-        st.subheader("🧠 Scientific Kernel Activity Index")
+        st.subheader("🧠 Kernel Activity Telemetry")
 
         kernel = SolverKernel()
-
         field = kernel.step()
 
         entropy_proxy = float(
@@ -111,26 +106,26 @@ if mode == "Scientific Overview":
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=entropy_proxy,
-            title={"text": "Entropy Activity Index"},
+            title={"text": "Scientific Activity Index"},
             gauge={
                 "axis": {"range": [0, 1]},
-                "bar": {"color": "#00FFAA"}
+                "bar": {"color": "#00FFCC"}
             }
         ))
 
         st.plotly_chart(fig, use_container_width=True)
 
-# -----------------------------
-# Simulation Kernel Monitor
-# -----------------------------
+# ------------------------------
+# Simulation Engine Workspace
+# ------------------------------
 
-elif mode == "Simulation Kernel Monitor":
+elif mode == "Simulation Engine":
 
-    st.title("🧪 Research Simulation Kernel")
+    st.title("🧪 Research Simulation Laboratory")
 
     kernel = SolverKernel()
 
-    if st.button("Run Scientific Kernel Step"):
+    if st.button("Run Simulation Step"):
 
         field = kernel.step()
 
@@ -141,44 +136,48 @@ elif mode == "Simulation Kernel Monitor":
             )
         )
 
+        fig.update_layout(
+            title="Scientific Field Simulation Surface"
+        )
+
         st.plotly_chart(fig, use_container_width=True)
 
-# -----------------------------
-# Federation Cluster Status
-# -----------------------------
+# ------------------------------
+# Cluster Telemetry Workspace
+# ------------------------------
 
-elif mode == "Federation Cluster Status":
+elif mode == "Cluster Telemetry":
 
-    st.title("☁️ Scientific Cluster Federation")
+    st.title("☁️ Multi-Node Research Cluster Status")
 
-    node_health = {
-        "Compute Node A": np.random.rand(),
-        "Compute Node B": np.random.rand(),
-        "Compute Node C": np.random.rand(),
-        "Compute Node D": np.random.rand()
+    cluster_nodes = {
+        "Compute Node Alpha": np.random.rand(),
+        "Compute Node Beta": np.random.rand(),
+        "Compute Node Gamma": np.random.rand(),
+        "Compute Node Delta": np.random.rand()
     }
 
     fig = go.Figure(go.Bar(
-        x=list(node_health.keys()),
-        y=list(node_health.values())
+        x=list(cluster_nodes.keys()),
+        y=list(cluster_nodes.values())
     ))
 
     fig.update_layout(
-        title="Research Cluster Health Index"
+        title="Federated Scientific Compute Health"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-# -----------------------------
-# Dataset Explorer
-# -----------------------------
+# ------------------------------
+# Dataset Laboratory Workspace
+# ------------------------------
 
-elif mode == "Dataset Exploration":
+elif mode == "Dataset Laboratory":
 
-    st.title("📊 Research Dataset Explorer")
+    st.title("📊 Scientific Dataset Explorer")
 
     if df.empty:
-        st.warning("No dataset stream available")
+        st.warning("No streaming research dataset available")
 
     else:
         st.dataframe(df)
