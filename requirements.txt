@@ -10,3 +10,5 @@ torch
 joblib
 tenacity
 plotly
+fastapi
+uvicorn
