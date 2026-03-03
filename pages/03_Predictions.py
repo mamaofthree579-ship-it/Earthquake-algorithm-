@@ -15,10 +15,7 @@ main = np.ones(N) + 2*dt*D/(dx**2)
 off = -dt*D/(dx**2) * np.ones(N-1)
 A = diags([off, main, off], [-1,0,1]).toarray()
 
-today = date.today()
-end = today.isoformat()
-start_recent = (today - timedelta(days=7)).isoformat()
-
+@st.cache_data(ttl=600)
 def fetch(start, end):
     try:
         r = requests.get(
@@ -45,39 +42,45 @@ def fetch(start, end):
         })
     return pd.DataFrame(rows)
 
-df = fetch(start_recent, end)
+today = date.today()
+df = fetch((today - timedelta(days=7)).isoformat(), today.isoformat())
 if df.empty:
     st.write("No recent quakes")
     st.stop()
 
+# sidebar controls
+st.sidebar.header("Settings")
 places = df["place"].unique().tolist()
-choice = st.selectbox("Choose event location", places)
+choice = st.sidebar.selectbox("Location", places)
+mag_adj = st.sidebar.slider("Magnitude adjustment", -1.0, 1.0, 0.0, 0.1)
+
 event = df[df["place"] == choice].iloc[0]
 lat0, lon0 = np.radians(event.lat), np.radians(event.lon)
-chi = np.cos(lat0) * np.sin(lon0) # spatial sensitivity
+chi = np.cos(lat0) * np.sin(lon0)
 st.caption(f"Lat {event.lat:.2f}, Lon {event.lon:.2f}")
 
-# ----- PDE evolution -----
+# PDE solve with progress
 sigma = np.random.normal(0, 0.01, N)
 sigmas = []
+prog = st.progress(0)
 for n in range(len(df)):
     S = math.sin(0.01*n)
     G = math.cos(0.008*n)
-    V = event.mag
-    O = chi * (0.5*math.cos(0.005*n)) # lat/lon‑weighted loading
+    V = event.mag + mag_adj
+    O = chi * (0.5*math.cos(0.005*n))
     forcing = (alpha*S + beta*G + gamma*V + delta*O +
                kappa*sigma**3 + noise_amp*np.random.randn(N))
     rhs = sigma + dt*(-lam*sigma + forcing)
     sigma = spsolve(A, rhs)
     sigmas.append(sigma.copy())
+    prog.progress((n+1)/len(df))
 
 I = np.array(sigmas).mean(axis=1)
 df["I"] = I
-df["P"] = 1 / (1 + np.exp(-df["I"]))
-df["P"] = df["P"].clip(0.01, 0.99)
+df["P"] = 1 / (1 + np.exp(-df["I"])).clip(0.01, 0.99)
 df["Risk"] = df["P"].apply(lambda p: "Low" if p<0.25 else "Moderate" if p<0.5 else "Elevated" if p<0.75 else "Critical")
 
-st.subheader("Recent risk (coords‑aware)")
+st.subheader("Recent risk")
 st.dataframe(df[["date","place","mag","P","Risk"]])
 
 # forward forecast
@@ -88,7 +91,7 @@ for i in range(1,4):
     S = math.sin(0.01*(len(df)+i))
     G = math.cos(0.008*(len(df)+i))
     O = chi * (0.5*math.cos(0.005*(len(df)+i)))
-    forcing = (alpha*S + beta*G + gamma*event.mag + delta*O +
+    forcing = (alpha*S + beta*G + gamma*(event.mag+mag_adj) + delta*O +
                kappa*sigma_last**3 + noise_amp*np.random.randn(N))
     rhs = sigma_last + dt*(-lam*sigma_last + forcing)
     sigma_last = spsolve(A, rhs)
