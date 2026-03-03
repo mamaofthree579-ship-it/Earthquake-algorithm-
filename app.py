@@ -2,112 +2,149 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import requests
 
-# ------------------------------
-# Configuration
-# ------------------------------
+from ingestion.usgs_stream import fetch_usgs_stream
+from core.solver_kernel import SolverKernel
+from visualization.maps import render_global_map
+from visualization.gauges import render_gauge
 
-st.set_page_config(layout="wide")
-st.title("🌍 IHRAS Open Science Research Platform")
+# -------------------------------
+# Page Configuration
+# -------------------------------
 
-# ------------------------------
-# Data Ingestion Layer
-# ------------------------------
+st.set_page_config(
+    page_title="IHRAS Scientific Research Platform",
+    layout="wide"
+)
 
-USGS_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
+# -------------------------------
+# Sidebar Navigation
+# -------------------------------
 
-def fetch_stream():
+st.sidebar.title("🌍 IHRAS Research Control")
 
-    try:
-        response = requests.get(USGS_URL, timeout=10)
-        response.raise_for_status()
+mode = st.sidebar.selectbox(
+    "Research Mode",
+    [
+        "Dashboard",
+        "Simulation Kernel",
+        "Federation Metrics",
+        "Data Exploration"
+    ]
+)
 
-        data = response.json()
+st.sidebar.markdown("---")
 
-        records = []
+# -------------------------------
+# Load Data
+# -------------------------------
 
-        for feature in data.get("features", []):
+df = fetch_usgs_stream()
 
-            props = feature.get("properties", {})
-            coords = feature.get("geometry", {}).get("coordinates", [])
+# -------------------------------
+# Dashboard Mode
+# -------------------------------
 
-            if len(coords) < 2:
-                continue
+if mode == "Dashboard":
 
-            records.append({
-                "longitude": coords[0],
-                "latitude": coords[1],
-                "magnitude": props.get("mag", 0)
-            })
+    st.title("🌌 Open Science Research Dashboard")
 
-        return pd.DataFrame(records)
+    col1, col2 = st.columns(2)
 
-    except Exception:
-        return pd.DataFrame()
+    # Global Map Visualization
+    with col1:
 
-# ------------------------------
-# Research Kernel Simulation
-# ------------------------------
+        st.subheader("🗺️ Global Event Distribution")
 
-def research_kernel_simulation(grid=(180,360)):
+        if not df.empty:
 
-    field = np.random.normal(0,0.001,grid)
+            fig = render_global_map(
+                df["longitude"].tolist(),
+                df["latitude"].tolist(),
+                df["magnitude"].tolist()
+            )
 
-    laplacian = (
-        np.roll(field,1,0)+
-        np.roll(field,-1,0)+
-        np.roll(field,1,1)+
-        np.roll(field,-1,1)-
-        4*field
-    )
+            st.plotly_chart(fig, use_container_width=True)
 
-    field += 0.01*(0.15*laplacian - 0.25*field)
+        else:
+            st.warning("No research stream data available")
 
-    return field
+    # Cluster Health Metric
+    with col2:
 
-# ------------------------------
-# Visualization Layer
-# ------------------------------
+        st.subheader("🔬 Research Kernel Stability Proxy")
 
-df = fetch_stream()
+        kernel = SolverKernel()
 
-if not df.empty:
+        field = kernel.step()
 
-    df["magnitude"] = df["magnitude"].fillna(0)
-    df["marker_size"] = np.clip(df["magnitude"]*2,2,20)
-
-    fig = go.Figure()
-
-    fig.add_trace(go.Scattergeo(
-        lon=df["longitude"].tolist(),
-        lat=df["latitude"].tolist(),
-        mode="markers",
-        marker=dict(
-            size=df["marker_size"].tolist(),
-            color=df["magnitude"].tolist(),
-            colorscale="Viridis"
+        entropy_proxy = -np.mean(
+            field * np.log(np.abs(field) + 1e-8)
         )
+
+        fig = render_gauge(
+            entropy_proxy,
+            title="Entropy Activity Index"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+# -------------------------------
+# Simulation Kernel Mode
+# -------------------------------
+
+elif mode == "Simulation Kernel":
+
+    st.title("🧠 Scientific Simulation Kernel")
+
+    kernel = SolverKernel()
+
+    if st.button("Run Kernel Step"):
+
+        field = kernel.step()
+
+        st.success("Kernel simulation executed")
+
+        fig = go.Figure(
+            go.Heatmap(
+                z=field,
+                colorscale="Viridis"
+            )
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+# -------------------------------
+# Federation Metrics Mode
+# -------------------------------
+
+elif mode == "Federation Metrics":
+
+    st.title("☁️ Cluster Federation Metrics")
+
+    node_scores = {
+        "Node-A": np.random.rand(),
+        "Node-B": np.random.rand(),
+        "Node-C": np.random.rand()
+    }
+
+    fig = go.Figure(go.Bar(
+        x=list(node_scores.keys()),
+        y=list(node_scores.values())
     ))
 
-    fig.update_geos(projection_type="natural earth")
+    fig.update_layout(
+        title="Scientific Cluster Health Distribution"
+    )
 
     st.plotly_chart(fig, use_container_width=True)
 
-else:
-    st.warning("No streaming research data available")
+# -------------------------------
+# Data Exploration Mode
+# -------------------------------
 
-# ------------------------------
-# Research Metrics Dashboard
-# ------------------------------
+elif mode == "Data Exploration":
 
-field = research_kernel_simulation()
+    st.title("📊 Research Dataset Explorer")
 
-entropy_proxy = -np.mean(
-    field*np.log(np.abs(field)+1e-8)
-)
-
-st.metric(
-    "Research Entropy Proxy",
-    f"{entropy_proxy:.6f}"
-)
+    st.dataframe(df)
