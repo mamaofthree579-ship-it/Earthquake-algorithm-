@@ -5,7 +5,7 @@ from tenacity import retry, stop_after_attempt
 USGS_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
 
 @retry(stop=stop_after_attempt(3))
-def fetch_usgs_stream():
+def fetch_stream():
 
     response = requests.get(USGS_URL, timeout=10)
     response.raise_for_status()
