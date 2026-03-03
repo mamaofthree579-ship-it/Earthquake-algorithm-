@@ -22,14 +22,18 @@ else:
 # fetch functions
 @st.cache_data(ttl=600)
 def fetch_eq(days):
-    r = requests.get(
-        "https://earthquake.usgs.gov/fdsnws/event/1/query",
-        params={"format":"geojson",
-                "starttime":(date.today()-timedelta(days=days)).isoformat(),
-                "endtime":date.today().isoformat()},
-        timeout=15
-    )
-    data = r.json()
+    try:
+        r = requests.get(
+            "https://earthquake.usgs.gov/fdsnws/event/1/query",
+            params={"format":"geojson",
+                    "starttime":(date.today()-timedelta(days=days)).isoformat(),
+                    "endtime":date.today().isoformat()},
+            timeout=10
+        )
+        r.raise_for_status()
+        data = r.json()
+    except Exception:
+        return pd.DataFrame()
     rows=[]
     for f in data.get("features",[]):
         p,g=f["properties"],f["geometry"]["coordinates"]
@@ -38,8 +42,7 @@ def fetch_eq(days):
     return pd.DataFrame(rows)
 
 df_recent = fetch_eq(7)
-df_hist = fetch_eq(365)
-
+df_hist = fetch_eq(30) # shorter history to avoid timeout
 # map
 st.map(df_recent.rename(columns={"lat":"latitude","lon":"longitude"}))
 
