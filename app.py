@@ -1,69 +1,30 @@
 import streamlit as st
-import plotly.graph_objects as go
 import numpy as np
 
-from ingestion.usgs_stream import fetch_usgs_stream
-from physics.solver_kernel import HarmonicSolverKernel
-from analytics.stability_metrics import compute_stability_index
+from ingestion.usgs_stream import fetch_stream
+from core.solver_engine import ResearchSolverEngine
+from visualization.geo_mapper import render_geo_map
+from ensemble.monte_carlo_engine import monte_carlo_risk_simulation
 
 st.set_page_config(layout="wide")
 
-st.title("🌍 IHRAS Laboratory Edition")
+st.title("🌍 IHRAS Research Institute Platform")
 
-# --------------------------
-# Data Layer
-# --------------------------
+# Load Data
+df = fetch_stream()
 
-df = fetch_usgs_stream()
+# Solver Kernel
+solver = ResearchSolverEngine()
+field = solver.step()
 
-if df.empty:
-    st.warning("No streaming data available")
-
-else:
-    df["magnitude"] = df["magnitude"].astype(float)
-    df["marker_size"] = np.clip(df["magnitude"] * 2, 2, 20)
-
-# --------------------------
-# Physics Simulation Kernel
-# --------------------------
-
-solver = HarmonicSolverKernel()
-stress_field = solver.step()
-
-# --------------------------
 # Visualization
-# --------------------------
-
-fig = go.Figure()
-
-if not df.empty:
-
-    fig.add_trace(go.Scattergeo(
-        lon=df["longitude"].tolist(),
-        lat=df["latitude"].tolist(),
-        mode="markers",
-        marker=dict(
-            size=df["marker_size"].tolist(),
-            color=df["magnitude"].tolist(),
-            colorscale="Viridis"
-        )
-    ))
-
-fig.update_geos(
-    projection_type="natural earth"
-)
-
+fig = render_geo_map(df)
 st.plotly_chart(fig, use_container_width=True)
 
-# --------------------------
-# Stability Metric
-# --------------------------
-
-stability = compute_stability_index(
-    df["magnitude"].tolist() if not df.empty else []
-)
+# Risk Metric
+risk_index = monte_carlo_risk_simulation(field)
 
 st.metric(
-    "System Stability Index",
-    f"{stability:.4f}"
+    "Institute Risk Index (Research Proxy)",
+    f"{risk_index:.5f}"
 )
