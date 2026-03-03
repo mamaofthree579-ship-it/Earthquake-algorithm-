@@ -3,18 +3,17 @@ import numpy as np
 class FederationKernel:
 
     def __init__(self):
-        self.node_registry = {}
+        self.nodes = {}
 
-    def register_node(self, node_id, health_score):
+    def register_node(self, node_id, health):
+        self.nodes[node_id] = health
 
-        self.node_registry[node_id] = health_score
+    def select_node(self):
 
-    def select_compute_node(self):
-
-        if not self.node_registry:
+        if not self.nodes:
             return None
 
         return max(
-            self.node_registry.items(),
-            key=lambda x: x[1]
+            self.nodes.items(),
+            key=lambda x:x[1]
         )[0]
