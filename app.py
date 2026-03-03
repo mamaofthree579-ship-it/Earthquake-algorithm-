@@ -1,60 +1,84 @@
 import streamlit as st
 import numpy as np
-import pandas as pd
 import plotly.graph_objects as go
 
 from ingestion.usgs_stream import fetch_usgs_stream
 from core.solver_kernel import SolverKernel
 from visualization.maps import render_global_map
-from visualization.gauges import render_gauge
 
-# -------------------------------
+# -----------------------------
 # Page Configuration
-# -------------------------------
+# -----------------------------
 
 st.set_page_config(
-    page_title="IHRAS Scientific Research Platform",
-    layout="wide"
+    page_title="IHRAS Scientific Research Institute",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# -------------------------------
-# Sidebar Navigation
-# -------------------------------
+# -----------------------------
+# Scientific Theme Styling
+# -----------------------------
+
+st.markdown("""
+<style>
+
+body {
+    background-color: #0E1117;
+}
+
+div.stButton > button {
+    width: 100%;
+}
+
+.metric-card {
+    padding: 15px;
+    border-radius: 10px;
+    background-color: #161B22;
+    box-shadow: 0px 0px 8px rgba(0,0,0,0.4);
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# -----------------------------
+# Sidebar Control Panel
+# -----------------------------
 
 st.sidebar.title("🌍 IHRAS Research Control")
 
-mode = st.sidebar.selectbox(
-    "Research Mode",
+mode = st.sidebar.radio(
+    "Dashboard Mode",
     [
-        "Dashboard",
-        "Simulation Kernel",
-        "Federation Metrics",
-        "Data Exploration"
+        "Scientific Overview",
+        "Simulation Kernel Monitor",
+        "Federation Cluster Status",
+        "Dataset Exploration"
     ]
 )
 
 st.sidebar.markdown("---")
 
-# -------------------------------
-# Load Data
-# -------------------------------
+# -----------------------------
+# Load Streaming Research Data
+# -----------------------------
 
 df = fetch_usgs_stream()
 
-# -------------------------------
-# Dashboard Mode
-# -------------------------------
+# -----------------------------
+# Scientific Overview Dashboard
+# -----------------------------
 
-if mode == "Dashboard":
+if mode == "Scientific Overview":
 
-    st.title("🌌 Open Science Research Dashboard")
+    st.title("🌌 Open Science Research Platform")
 
     col1, col2 = st.columns(2)
 
-    # Global Map Visualization
+    # Global Event Map
     with col1:
 
-        st.subheader("🗺️ Global Event Distribution")
+        st.subheader("🗺️ Global Research Event Distribution")
 
         if not df.empty:
 
@@ -67,43 +91,48 @@ if mode == "Dashboard":
             st.plotly_chart(fig, use_container_width=True)
 
         else:
-            st.warning("No research stream data available")
+            st.warning("Research stream unavailable")
 
-    # Cluster Health Metric
+    # Kernel Activity Metric
     with col2:
 
-        st.subheader("🔬 Research Kernel Stability Proxy")
+        st.subheader("🧠 Scientific Kernel Activity Index")
 
         kernel = SolverKernel()
 
         field = kernel.step()
 
-        entropy_proxy = -np.mean(
-            field * np.log(np.abs(field) + 1e-8)
+        entropy_proxy = float(
+            np.mean(
+                -field * np.log(np.abs(field) + 1e-8)
+            )
         )
 
-        fig = render_gauge(
-            entropy_proxy,
-            title="Entropy Activity Index"
-        )
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=entropy_proxy,
+            title={"text": "Entropy Activity Index"},
+            gauge={
+                "axis": {"range": [0, 1]},
+                "bar": {"color": "#00FFAA"}
+            }
+        ))
 
         st.plotly_chart(fig, use_container_width=True)
 
-# -------------------------------
-# Simulation Kernel Mode
-# -------------------------------
+# -----------------------------
+# Simulation Kernel Monitor
+# -----------------------------
 
-elif mode == "Simulation Kernel":
+elif mode == "Simulation Kernel Monitor":
 
-    st.title("🧠 Scientific Simulation Kernel")
+    st.title("🧪 Research Simulation Kernel")
 
     kernel = SolverKernel()
 
-    if st.button("Run Kernel Step"):
+    if st.button("Run Scientific Kernel Step"):
 
         field = kernel.step()
-
-        st.success("Kernel simulation executed")
 
         fig = go.Figure(
             go.Heatmap(
@@ -114,37 +143,42 @@ elif mode == "Simulation Kernel":
 
         st.plotly_chart(fig, use_container_width=True)
 
-# -------------------------------
-# Federation Metrics Mode
-# -------------------------------
+# -----------------------------
+# Federation Cluster Status
+# -----------------------------
 
-elif mode == "Federation Metrics":
+elif mode == "Federation Cluster Status":
 
-    st.title("☁️ Cluster Federation Metrics")
+    st.title("☁️ Scientific Cluster Federation")
 
-    node_scores = {
-        "Node-A": np.random.rand(),
-        "Node-B": np.random.rand(),
-        "Node-C": np.random.rand()
+    node_health = {
+        "Compute Node A": np.random.rand(),
+        "Compute Node B": np.random.rand(),
+        "Compute Node C": np.random.rand(),
+        "Compute Node D": np.random.rand()
     }
 
     fig = go.Figure(go.Bar(
-        x=list(node_scores.keys()),
-        y=list(node_scores.values())
+        x=list(node_health.keys()),
+        y=list(node_health.values())
     ))
 
     fig.update_layout(
-        title="Scientific Cluster Health Distribution"
+        title="Research Cluster Health Index"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-# -------------------------------
-# Data Exploration Mode
-# -------------------------------
+# -----------------------------
+# Dataset Explorer
+# -----------------------------
 
-elif mode == "Data Exploration":
+elif mode == "Dataset Exploration":
 
     st.title("📊 Research Dataset Explorer")
 
-    st.dataframe(df)
+    if df.empty:
+        st.warning("No dataset stream available")
+
+    else:
+        st.dataframe(df)
