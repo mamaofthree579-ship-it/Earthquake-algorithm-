@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import streamlit as st
 from core.cluster_orchestrator import ClusterOrchestrator
 from core.task_scheduler import TaskScheduler
