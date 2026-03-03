@@ -2,12 +2,10 @@ import streamlit as st, requests, pandas as pd, numpy as np, math
 from datetime import date, timedelta, datetime
 from scipy.sparse import diags
 from scipy.sparse.linalg import spsolve
+from scipy.stats import spearmanr
 
 st.title("Earthquake Risk – PDE with Real Forcings")
-st.markdown("""
-**Model:** ∂σ/∂t = D∇²σ – λσ + αS + βG + γV + δO + κσ³ + η 
-with O = χ × (tide + ENSO).
-""")
+st.markdown("**Model:** ∂σ/∂t = D∇²σ – λσ + αS + βG + γV + δO + κσ³ + η")
 
 st.sidebar.header("Params")
 D = st.sidebar.slider("Diffusion D", 0.1,1.0,0.5,0.1)
@@ -41,7 +39,6 @@ if df_recent.empty:
 df_hist=fetch_eq(30)
 
 st.map(df_recent.rename(columns={"lat":"latitude","lon":"longitude"}))
-
 choice=st.selectbox("Location",df_recent["place"].unique())
 event=df_recent[df_recent["place"]==choice].iloc[0]
 lat0,lon0=np.radians(event.lat),np.radians(event.lon)
@@ -85,11 +82,11 @@ A=diags([off,main,off],[-1,0,1]).toarray()
 
 def run_ens(df):
     Ps=[]
-    for _ in range(3):
+    for _ in range(10): # larger ensemble
         sigma=np.random.normal(0,0.01,N)
         sigs=[]
         for n in range(len(df)):
-            S=math.sin(0.01*n);G=math.cos(0.008*n);V=event.mag
+            S=math.sin(0.01*n);G=math.cos(0.008*n);V=math.log1p(event.mag) # log transform
             O=chi*(tide_vals[n] if n<len(tide_vals) else 0 + enso_val)
             forcing=alpha*S+beta*G+gamma*V+delta*O+kappa*sigma**3+noise_amp*np.random.randn(N)
             sigma=spsolve(A,sigma+dt*(-lam*sigma+forcing))
@@ -106,8 +103,8 @@ st.dataframe(df_recent[["date","place","mag","P_mean","P_std","Risk"]])
 
 if not df_hist.empty:
     df_hist["P_mean"],_=run_ens(df_hist)
-    corr=np.corrcoef(df_hist["mag"],df_hist["P_mean"])[0,1]
-    st.caption(f"Historical mag‑P correlation: {corr:.2f}")
+    rho,_=spearmanr(df_hist["mag"],df_hist["P_mean"] )
+    st.caption(f"Historical Spearman rank correlation: {rho:.2f}")
 
 csv=df_recent.to_csv(index=False)
 st.download_button("Download CSV",csv,"risk.csv","text/csv")
