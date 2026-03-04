@@ -88,9 +88,10 @@ def run_ens(df):
         sigs=[]
         for n in range(len(df)):
             S=math.sin(0.01*n);G=math.cos(0.008*n)
-            mag_val = max(float(mags[n]), 0.0) # clamp
+            mag_val = max(float(mags[n]), 0.0)
             V=math.log1p(mag_val) + np.random.normal(0,0.001)
-            O=chi*(tide_vals[n] if n<len(tide_vals) else 0 + enso_val)
+            recent_mag = max(float(mags[-1]), 0.0) # latest quake
+            O=recent_mag*(tide_vals[n] if n<len(tide_vals) else 0 + enso_val)
             forcing=alpha*S+beta*G+gamma*V+delta*O+kappa*sigma**3+noise_amp*np.random.randn(N)
             sigma=spsolve(A,sigma+dt*(-lam*sigma+forcing))
             sigs.append(sigma.copy())
