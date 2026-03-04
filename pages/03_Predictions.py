@@ -2,7 +2,6 @@ import streamlit as st, requests, pandas as pd, numpy as np, math
 from datetime import date, timedelta, datetime
 from scipy.sparse import diags
 from scipy.sparse.linalg import spsolve
-from scipy.stats import spearmanr
 
 st.title("Earthquake Risk – PDE Forecast")
 st.markdown("**Model:** ∂σ/∂t = D∇²σ – λσ + αS + βG + γV + δO + κσ³ + η")
@@ -36,11 +35,8 @@ def fetch_eq(days):
 df_recent=fetch_eq(7)
 if df_recent.empty:
     st.stop()
-df_hist=fetch_eq(30)
 
 st.map(df_recent.rename(columns={"lat":"latitude","lon":"longitude"}))
-
-# use latest quake for oceanic forcing
 recent_mag = max(float(np.nan_to_num(df_recent["mag"].values[-1], nan=0.0)), 0.0)
 
 stations=requests.get("https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json",timeout=10).json()["stations"]
@@ -49,7 +45,6 @@ def havers(lat1,lon1,lat2,lon2):
     dphi=math.radians(lat2-lat1);dlambda=math.radians(lon2-lon1)
     a=math.sin(dphi/2)**2+math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
     return 2*R*math.asin(math.sqrt(a))
-# pick station nearest mean location
 mean_lat=df_recent["lat"].mean();mean_lon=df_recent["lon"].mean()
 dists=[havers(mean_lat,mean_lon,s["lat"],s["lng"]) for s in stations]
 station_id=stations[int(np.argmin(dists))]["id"]
@@ -83,10 +78,10 @@ A=diags([off,main,off],[-1,0,1]).toarray()
 
 def run_ens(df):
     mags = np.nan_to_num(df["mag"].values, nan=0.0)
-    Ps=[]
+    P_vals=[]
     for _ in range(10):
         sigma=np.random.normal(0,0.01,N)
-        sigs=[]
+        step_ps=[]
         for n in range(len(df)):
             S=math.sin(0.01*n);G=math.cos(0.008*n)
             mag_val = max(float(mags[n]), 0.0)
@@ -94,21 +89,14 @@ def run_ens(df):
             O=recent_mag*(tide_vals[n] if n<len(tide_vals) else 0 + enso_val)
             forcing=alpha*S+beta*G+gamma*V+delta*O+kappa*sigma**3+noise_amp*np.random.randn(N)
             sigma=spsolve(A,sigma+dt*(-lam*sigma+forcing))
-            sigs.append(sigma.copy())
-        I=np.array(sigs).mean(axis=1)
-        Ps.append(1/(1+np.exp(-I)).clip(0.01,0.99))
-    return np.mean(Ps,axis=0),np.std(Ps,axis=0)
+            I = sigma.mean()
+            step_ps.append(1/(1+math.exp(-I)))
+        P_vals.append(step_ps)
+    P_arr = np.array(P_vals)
+    return P_arr.mean(axis=0), P_arr.std(axis=0)
 
 df_recent["P_mean"],df_recent["P_std"]=run_ens(df_recent)
 df_recent["Risk"]=df_recent["P_mean"].apply(lambda p:"Low" if p<0.25 else "Moderate" if p<0.5 else "Elevated" if p<0.75 else "Critical")
 
 st.subheader("Recent risk forecast")
 st.dataframe(df_recent[["date","place","mag","P_mean","P_std","Risk"]])
-
-if not df_hist.empty:
-    df_hist["P_mean"],_=run_ens(df_hist)
-    rho,_=spearmanr(df_hist["mag"],df_hist["P_mean"] )
-    st.caption(f"Historical Spearman rank correlation: {rho:.2f}")
-
-csv=df_recent.to_csv(index=False)
-st.download_button("Download CSV",csv,"risk.csv","text/csv")
