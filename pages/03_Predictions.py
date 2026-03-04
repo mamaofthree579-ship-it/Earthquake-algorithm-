@@ -33,7 +33,6 @@ if df_recent.empty:
 st.map(df_recent.rename(columns={"lat":"latitude","lon":"longitude"}))
 recent_mag = max(float(np.nan_to_num(df_recent["mag"].values[-1], nan=0.0)), 0.0)
 
-# solar flare flux
 try:
     flux = requests.get("https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json",timeout=10).json()[-1]["flux"]
     F = math.log1p(flux)
@@ -54,9 +53,24 @@ station_id=stations[int(np.argmin(dists))]["id"]
 tide_url=f"https://tidesandcurrents.noaa.gov/api/datagetter?date=today&product=predictions&datum=mllw&format=json&units=metric&time_zone=lst_ldt&station={station_id}"
 tide_vals=[float(x["v"]) for x in requests.get(tide_url,timeout=10).json().get("predictions",[])] if True else [0.0]*len(df_recent)
 
-File "/mount/src/earthquake-algorithm-/pages/03_Predictions.py", line 61, in <module>
-    nums=[float(x) for x in txt.replace("\n"," ").split() if x.replace(".","",1).replace("-","",1).isdigit()]
-          ~~~~~^^^
+enso_val=0.0
+for url in ("https://psl.noaa.gov/enso/data/nino34.data",
+            "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"):
+    try:
+        txt=requests.get(url,timeout=10).text
+        nums=[]
+        for x in txt.replace("\n"," ").split():
+            try:
+                nums.append(float(x))
+            except ValueError:
+                continue
+        if nums:
+            enso_val=nums[-1]
+            break
+    except Exception:
+        continue
+if enso_val==0.0:
+    st.warning("ENSO fetch failed, using 0")
 
 alpha,beta,gamma,delta=0.1,0.05,0.2,0.08
 noise_amp,dx,dt,N=0.05,1.0,0.01,200
@@ -88,8 +102,6 @@ df_recent["Risk"]=df_recent["P_mean"].apply(lambda p:"Low" if p<0.25 else "Moder
 
 st.subheader("Risk forecast")
 st.dataframe(df_recent[["date","place","mag","P_mean","P_std","Risk"]])
-
-# simple lat/lon forecast: top risk rows
 top=df_recent.nlargest(3,"P_mean")
 st.subheader("Predicted active zones (lat/lon)")
 st.dataframe(top[["place","lat","lon","P_mean"]])
