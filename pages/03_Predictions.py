@@ -54,13 +54,9 @@ station_id=stations[int(np.argmin(dists))]["id"]
 tide_url=f"https://tidesandcurrents.noaa.gov/api/datagetter?date=today&product=predictions&datum=mllw&format=json&units=metric&time_zone=lst_ldt&station={station_id}"
 tide_vals=[float(x["v"]) for x in requests.get(tide_url,timeout=10).json().get("predictions",[])] if True else [0.0]*len(df_recent)
 
-enso_val=0.0
-for url in ("https://psl.noaa.gov/enso/data/nino34.data",
-            "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"):
-    txt=requests.get(url,timeout=10).text
+File "/mount/src/earthquake-algorithm-/pages/03_Predictions.py", line 61, in <module>
     nums=[float(x) for x in txt.replace("\n"," ").split() if x.replace(".","",1).replace("-","",1).isdigit()]
-    if nums:
-        enso_val=nums[-1];break
+          ~~~~~^^^
 
 alpha,beta,gamma,delta=0.1,0.05,0.2,0.08
 noise_amp,dx,dt,N=0.05,1.0,0.01,200
