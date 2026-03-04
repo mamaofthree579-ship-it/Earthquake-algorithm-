@@ -80,23 +80,12 @@ main=np.ones(N)+2*dt*D/(dx**2)
 off=-dt*D/(dx**2)*np.ones(N-1)
 A=diags([off,main,off],[-1,0,1]).toarray()
 
-def run_ens(df):
-    mags = np.nan_to_num(df["mag"].values, nan=0.0)
-    Ps=[]
-    for _ in range(10):
-        sigma=np.random.normal(0,0.01,N)
-        sigs=[]
-        for n in range(len(df)):
-            S=math.sin(0.01*n);G=math.cos(0.008*n)
-            mag_val = float(mags[n]) # ensure native float
-            V=math.log1p(mag_val) + np.random.normal(0,0.001)
-            O=chi*(tide_vals[n] if n<len(tide_vals) else 0 + enso_val)
-            forcing=alpha*S+beta*G+gamma*V+delta*O+kappa*sigma**3+noise_amp*np.random.randn(N)
-            sigma=spsolve(A,sigma+dt*(-lam*sigma+forcing))
-            sigs.append(sigma.copy())
-        I=np.array(sigs).mean(axis=1)
-        Ps.append(1/(1+np.exp(-I)).clip(0.01,0.99))
-    return np.mean(Ps,axis=0),np.std(Ps,axis=0)
+File "/mount/src/earthquake-algorithm-/pages/03_Predictions.py", line 101, in <module>
+    df_recent["P_mean"],df_recent["P_std"]=run_ens(df_recent)
+                                           ~~~~~~~^^^^^^^^^^^
+File "/mount/src/earthquake-algorithm-/pages/03_Predictions.py", line 92, in run_ens
+    V=math.log1p(mag_val) + np.random.normal(0,0.001)
+      ~~~~~~~~~~^^^^^^^^^
 
 df_recent["P_mean"],df_recent["P_std"]=run_ens(df_recent)
 df_recent["Risk"]=df_recent["P_mean"].apply(lambda p:"Low" if p<0.25 else "Moderate" if p<0.5 else "Elevated" if p<0.75 else "Critical")
