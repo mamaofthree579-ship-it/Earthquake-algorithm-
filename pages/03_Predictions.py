@@ -81,7 +81,7 @@ off=-dt*D/(dx**2)*np.ones(N-1)
 A=diags([off,main,off],[-1,0,1]).toarray()
 
 def run_ens(df):
-    mags=df["mag"].fillna(0).values
+    mags = np.nan_to_num(df["mag"].values, nan=0.0) # force numeric
     Ps=[]
     for _ in range(10):
         sigma=np.random.normal(0,0.01,N)
