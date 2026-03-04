@@ -4,7 +4,7 @@ from scipy.sparse import diags
 from scipy.sparse.linalg import spsolve
 from scipy.stats import spearmanr
 
-st.title("Earthquake Risk – PDE with Real Forcings")
+st.title("Earthquake Risk – PDE Forecast")
 st.markdown("**Model:** ∂σ/∂t = D∇²σ – λσ + αS + βG + γV + δO + κσ³ + η")
 
 st.sidebar.header("Params")
@@ -39,10 +39,9 @@ if df_recent.empty:
 df_hist=fetch_eq(30)
 
 st.map(df_recent.rename(columns={"lat":"latitude","lon":"longitude"}))
-choice=st.selectbox("Location",df_recent["place"].unique())
-event=df_recent[df_recent["place"]==choice].iloc[0]
-lat0,lon0=np.radians(event.lat),np.radians(event.lon)
-chi=math.cos(lat0)*math.sin(lon0)
+
+# use latest quake for oceanic forcing
+recent_mag = max(float(np.nan_to_num(df_recent["mag"].values[-1], nan=0.0)), 0.0)
 
 stations=requests.get("https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json",timeout=10).json()["stations"]
 def havers(lat1,lon1,lat2,lon2):
@@ -50,7 +49,9 @@ def havers(lat1,lon1,lat2,lon2):
     dphi=math.radians(lat2-lat1);dlambda=math.radians(lon2-lon1)
     a=math.sin(dphi/2)**2+math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
     return 2*R*math.asin(math.sqrt(a))
-dists=[havers(event.lat,event.lon,s["lat"],s["lng"]) for s in stations]
+# pick station nearest mean location
+mean_lat=df_recent["lat"].mean();mean_lon=df_recent["lon"].mean()
+dists=[havers(mean_lat,mean_lon,s["lat"],s["lng"]) for s in stations]
 station_id=stations[int(np.argmin(dists))]["id"]
 
 tide_url=f"https://tidesandcurrents.noaa.gov/api/datagetter?date=today&product=predictions&datum=mllw&format=json&units=metric&time_zone=lst_ldt&station={station_id}"
@@ -90,7 +91,6 @@ def run_ens(df):
             S=math.sin(0.01*n);G=math.cos(0.008*n)
             mag_val = max(float(mags[n]), 0.0)
             V=math.log1p(mag_val) + np.random.normal(0,0.001)
-            recent_mag = max(float(mags[-1]), 0.0) # latest quake
             O=recent_mag*(tide_vals[n] if n<len(tide_vals) else 0 + enso_val)
             forcing=alpha*S+beta*G+gamma*V+delta*O+kappa*sigma**3+noise_amp*np.random.randn(N)
             sigma=spsolve(A,sigma+dt*(-lam*sigma+forcing))
@@ -102,7 +102,7 @@ def run_ens(df):
 df_recent["P_mean"],df_recent["P_std"]=run_ens(df_recent)
 df_recent["Risk"]=df_recent["P_mean"].apply(lambda p:"Low" if p<0.25 else "Moderate" if p<0.5 else "Elevated" if p<0.75 else "Critical")
 
-st.subheader("Recent risk")
+st.subheader("Recent risk forecast")
 st.dataframe(df_recent[["date","place","mag","P_mean","P_std","Risk"]])
 
 if not df_hist.empty:
