@@ -81,14 +81,15 @@ off=-dt*D/(dx**2)*np.ones(N-1)
 A=diags([off,main,off],[-1,0,1]).toarray()
 
 def run_ens(df):
-    mags = np.nan_to_num(df["mag"].values, nan=0.0) # force numeric
+    mags = np.nan_to_num(df["mag"].values, nan=0.0)
     Ps=[]
     for _ in range(10):
         sigma=np.random.normal(0,0.01,N)
         sigs=[]
         for n in range(len(df)):
             S=math.sin(0.01*n);G=math.cos(0.008*n)
-            V=math.log1p(mags[n]) + np.random.normal(0,0.001)
+            mag_val = float(mags[n]) # ensure native float
+            V=math.log1p(mag_val) + np.random.normal(0,0.001)
             O=chi*(tide_vals[n] if n<len(tide_vals) else 0 + enso_val)
             forcing=alpha*S+beta*G+gamma*V+delta*O+kappa*sigma**3+noise_amp*np.random.randn(N)
             sigma=spsolve(A,sigma+dt*(-lam*sigma+forcing))
