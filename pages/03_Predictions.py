@@ -3,28 +3,22 @@ from datetime import date, timedelta, datetime
 from scipy.sparse import diags
 from scipy.sparse.linalg import spsolve
 
-st.title("Earthquake Risk – PDE Forecast")
-st.markdown("**Model:** ∂σ/∂t = D∇²σ – λσ + αS + βG + γV + δO + κσ³ + η")
+st.title("Earthquake Risk – PDE with Solar Forcing")
+st.markdown("**Model:** ∂σ/∂t = D∇²σ – λσ + αS + βG + γV + δO + εF + κσ³ + η")
 
 st.sidebar.header("Params")
 D = st.sidebar.slider("Diffusion D", 0.1,1.0,0.5,0.1)
 lam = st.sidebar.slider("Damping λ",0.1,1.0,0.3,0.1)
 kappa = st.sidebar.slider("Nonlinear κ",0.01,0.05,0.02,0.01)
+epsilon = st.sidebar.slider("Solar ε",0.0,0.2,0.05,0.01)
 
 @st.cache_data(ttl=600)
 def fetch_eq(days):
-    try:
-        r = requests.get(
-            "https://earthquake.usgs.gov/fdsnws/event/1/query",
-            params={"format":"geojson",
-                    "starttime":(date.today()-timedelta(days=days)).isoformat(),
-                    "endtime":date.today().isoformat()},
-            timeout=10)
-        r.raise_for_status()
-        data=r.json()
-    except Exception as e:
-        st.warning(f"USGS fetch failed: {e}")
-        return pd.DataFrame()
+    r = requests.get("https://earthquake.usgs.gov/fdsnws/event/1/query",
+                     params={"format":"geojson",
+                             "starttime":(date.today()-timedelta(days=days)).isoformat(),
+                             "endtime":date.today().isoformat()},timeout=10)
+    data=r.json()
     rows=[]
     for f in data.get("features",[]):
         p,g=f["properties"],f["geometry"]["coordinates"]
@@ -39,6 +33,14 @@ if df_recent.empty:
 st.map(df_recent.rename(columns={"lat":"latitude","lon":"longitude"}))
 recent_mag = max(float(np.nan_to_num(df_recent["mag"].values[-1], nan=0.0)), 0.0)
 
+# solar flare flux
+try:
+    flux = requests.get("https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json",timeout=10).json()[-1]["flux"]
+    F = math.log1p(flux)
+except Exception:
+    st.warning("Solar fetch failed, using 0")
+    F = 0.0
+
 stations=requests.get("https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json",timeout=10).json()["stations"]
 def havers(lat1,lon1,lat2,lon2):
     R=6371;phi1,phi2=math.radians(lat1),math.radians(lat2)
@@ -50,25 +52,15 @@ dists=[havers(mean_lat,mean_lon,s["lat"],s["lng"]) for s in stations]
 station_id=stations[int(np.argmin(dists))]["id"]
 
 tide_url=f"https://tidesandcurrents.noaa.gov/api/datagetter?date=today&product=predictions&datum=mllw&format=json&units=metric&time_zone=lst_ldt&station={station_id}"
-try:
-    tide_vals=[float(x["v"]) for x in requests.get(tide_url,timeout=10).json().get("predictions",[])]
-except Exception:
-    st.warning("Tide fetch failed, using zeros")
-    tide_vals=[0.0]*len(df_recent)
+tide_vals=[float(x["v"]) for x in requests.get(tide_url,timeout=10).json().get("predictions",[])] if True else [0.0]*len(df_recent)
 
 enso_val=0.0
 for url in ("https://psl.noaa.gov/enso/data/nino34.data",
             "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"):
-    try:
-        txt=requests.get(url,timeout=10).text
-        nums=[float(x) for x in txt.replace("\n"," ").split() if x.replace(".","",1).replace("-","",1).isdigit()]
-        if nums:
-            enso_val=nums[-1]
-            break
-    except Exception:
-        continue
-if enso_val==0.0:
-    st.warning("ENSO fetch failed, using 0")
+    txt=requests.get(url,timeout=10).text
+    nums=[float(x) for x in txt.replace("\n"," ").split() if x.replace(".","",1).replace("-","",1).isdigit()]
+    if nums:
+        enso_val=nums[-1];break
 
 alpha,beta,gamma,delta=0.1,0.05,0.2,0.08
 noise_amp,dx,dt,N=0.05,1.0,0.01,200
@@ -87,7 +79,7 @@ def run_ens(df):
             mag_val = max(float(mags[n]), 0.0)
             V=math.log1p(mag_val) + np.random.normal(0,0.001)
             O=recent_mag*(tide_vals[n] if n<len(tide_vals) else 0 + enso_val)
-            forcing=alpha*S+beta*G+gamma*V+delta*O+kappa*sigma**3+noise_amp*np.random.randn(N)
+            forcing=alpha*S+beta*G+gamma*V+delta*O+epsilon*F+kappa*sigma**3+noise_amp*np.random.randn(N)
             sigma=spsolve(A,sigma+dt*(-lam*sigma+forcing))
             I = sigma.mean()
             step_ps.append(1/(1+math.exp(-I)))
@@ -98,5 +90,10 @@ def run_ens(df):
 df_recent["P_mean"],df_recent["P_std"]=run_ens(df_recent)
 df_recent["Risk"]=df_recent["P_mean"].apply(lambda p:"Low" if p<0.25 else "Moderate" if p<0.5 else "Elevated" if p<0.75 else "Critical")
 
-st.subheader("Recent risk forecast")
+st.subheader("Risk forecast")
 st.dataframe(df_recent[["date","place","mag","P_mean","P_std","Risk"]])
+
+# simple lat/lon forecast: top risk rows
+top=df_recent.nlargest(3,"P_mean")
+st.subheader("Predicted active zones (lat/lon)")
+st.dataframe(top[["place","lat","lon","P_mean"]])
