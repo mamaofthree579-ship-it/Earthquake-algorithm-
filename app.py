@@ -1,28 +1,28 @@
 import streamlit as st
-import requests
-import pandas as pd
 import plotly.graph_objects as go
+import pandas as pd
 
 from core.cluster_orchestrator import ClusterOrchestrator
 from research.autonomous_discovery import AutonomousDiscoveryEngine
+from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
 
-# ----------------------------------------------------
-# Page Setup
-# ----------------------------------------------------
+# --------------------------------------------------
+# Page Configuration
+# --------------------------------------------------
 
 st.set_page_config(
-    page_title="IHRAS Scientific Dashboard",
+    page_title="IHRAS Scientific Hazard Research Platform",
     layout="wide"
 )
 
-st.title("🌍 IHRAS Integrated Hazard Research Platform")
+st.title("🌍 IHRAS Integrated Harmonic Risk & Awareness System")
 
 
-# ----------------------------------------------------
-# Initialize Core Systems
-# ----------------------------------------------------
+# --------------------------------------------------
+# Initialize Core Engines
+# --------------------------------------------------
 
 if "cluster" not in st.session_state:
     st.session_state.cluster = ClusterOrchestrator()
@@ -30,24 +30,28 @@ if "cluster" not in st.session_state:
 if "discovery" not in st.session_state:
     st.session_state.discovery = AutonomousDiscoveryEngine()
 
+if "harmonic_engine" not in st.session_state:
+    st.session_state.harmonic_engine = PlanetaryHarmonicPredictionEngine()
+
 cluster = st.session_state.cluster
 discovery = st.session_state.discovery
+harmonic_engine = st.session_state.harmonic_engine
 
 
-# ----------------------------------------------------
+# --------------------------------------------------
 # Sidebar Controls
-# ----------------------------------------------------
+# --------------------------------------------------
 
-st.sidebar.header("Autonomous Research Controls")
+st.sidebar.header("Research Controls")
 
-if st.sidebar.button("Run Discovery Cycle"):
+if st.sidebar.button("Run Autonomous Discovery Cycle"):
     jobs = discovery.run_cycle(10)
-    st.sidebar.success(f"Launched {len(jobs)} autonomous experiments")
+    st.sidebar.success(f"Launched {len(jobs)} experiments")
 
 
-# ----------------------------------------------------
-# Global Seismic Visualization
-# ----------------------------------------------------
+# --------------------------------------------------
+# Seismic Visualization Section
+# --------------------------------------------------
 
 st.header("🌎 Global Seismic Activity Map")
 
@@ -58,12 +62,10 @@ try:
 
         df = df.dropna(subset=["longitude", "latitude", "magnitude"])
 
-        # Safety clamp magnitude
-        df["magnitude"] = df["magnitude"].apply(
-            lambda x: max(float(x), 0.1)
-        )
+        # Safety clamp magnitude values
+        df["magnitude"] = df["magnitude"].apply(lambda x: max(float(x), 0.1))
 
-        marker_size = df["magnitude"] * 3
+        marker_size = (df["magnitude"] * 3).clip(lower=0.5)
 
         fig = go.Figure()
 
@@ -91,22 +93,39 @@ try:
         st.plotly_chart(fig, use_container_width=True)
 
     else:
-        st.info("Seismic dataset currently empty.")
+        st.info("Seismic dataset currently unavailable.")
 
 except Exception as e:
-    st.warning("Hazard feed unavailable — displaying safe dashboard state.")
+    st.warning("Seismic ingestion subsystem offline.")
     st.text(str(e))
 
 
-# ----------------------------------------------------
+# --------------------------------------------------
+# Planetary Harmonic Forecast Engine
+# --------------------------------------------------
+
+st.header("🌌 Planetary Harmonic Risk Forecast")
+
+t = st.slider("Simulation Time Index", 0, 365, 180)
+
+if st.button("Run Harmonic Forecast Simulation"):
+
+    risk_score = harmonic_engine.predict_risk(t)
+
+    st.metric(
+        label="Hazard Resonance Index",
+        value=f"{risk_score:.5f}"
+    )
+
+
+# --------------------------------------------------
 # Experiment Console
-# ----------------------------------------------------
+# --------------------------------------------------
 
 st.header("🧪 Scientific Experiment Console")
 
 param_x = st.number_input("Parameter X", value=1.0)
 param_y = st.number_input("Parameter Y", value=2.0)
-
 
 if st.button("Run Test Experiment"):
 
@@ -126,9 +145,9 @@ if st.button("Run Test Experiment"):
     st.success(f"Experiment job launched → {job_id}")
 
 
-# ----------------------------------------------------
+# --------------------------------------------------
 # Artifact Ledger Viewer
-# ----------------------------------------------------
+# --------------------------------------------------
 
 st.header("📚 Research Artifact Ledger")
 
@@ -136,21 +155,18 @@ try:
     artifacts = cluster.ledger.list_artifacts()
 
     if artifacts:
-        st.write("Stored Experiment Artifacts")
-
         for a in artifacts:
             st.code(a)
-
     else:
-        st.info("No research artifacts recorded yet.")
+        st.info("No research artifacts stored.")
 
 except Exception:
-    st.info("Ledger subsystem offline.")
+    st.info("Ledger subsystem unavailable.")
 
 
-# ----------------------------------------------------
+# --------------------------------------------------
 # System Metrics Panel
-# ----------------------------------------------------
+# --------------------------------------------------
 
 st.header("📊 Platform Status")
 
