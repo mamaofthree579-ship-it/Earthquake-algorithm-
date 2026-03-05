@@ -1,36 +1,36 @@
 import streamlit as st
-import requests
-
-API_URL = "http://localhost:8000"
+from core.cluster_orchestrator import ClusterOrchestrator
+from experiments.example_experiment import run_experiment
 
 st.title("IHRAS Research Dashboard")
 
+cluster = ClusterOrchestrator()
+
+if "jobs" not in st.session_state:
+    st.session_state.jobs = []
+
 if st.button("Run Experiment"):
 
-    r = requests.post(f"{API_URL}/submit_job")
+    params = {"x": 5, "y": 10}
 
-    job_id = r.json()["job_id"]
+    job_id = cluster.submit_job(run_experiment, params)
+
+    st.session_state.jobs.append(job_id)
 
     st.success(f"Job submitted: {job_id}")
 
-job_id = st.text_input("Check Job Status")
+st.header("Job Status")
 
-if st.button("Check Status"):
+for job_id in st.session_state.jobs:
 
-    r = requests.get(f"{API_URL}/job_status/{job_id}")
+    status = cluster.job_status(job_id)
 
-    st.write(r.json())
+    st.write(job_id, status)
+
+st.header("Artifacts")
 
 if st.button("List Artifacts"):
 
-    r = requests.get(f"{API_URL}/artifacts")
+    artifacts = cluster.ledger.list_artifacts()
 
-    st.write(r.json())
-
-# ------------------------------------------------
-# Footer
-# ------------------------------------------------
-
-st.divider()
-
-st.caption("IHRAS • Integrated Harmonic Risk and Awareness System • Research Platform v1")
+    st.write(artifacts)
