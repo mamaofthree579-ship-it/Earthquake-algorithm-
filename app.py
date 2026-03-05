@@ -11,6 +11,7 @@ from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngin
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
 from research.harmonic_tensor_engine import HarmonicTensorDiscoveryEngine
 from research.autonomous_scientific_ai import AutonomousScientificDiscoveryAI
+from research.self_referential_learning_loop import SelfReferentialDiscoveryLoop
 
 
 # ----------------------------------------------------
@@ -47,6 +48,9 @@ if "tensor_engine" not in st.session_state:
 if "ai_core" not in st.session_state:
     st.session_state.ai_core = AutonomousScientificDiscoveryAI()
 
+if "learning_loop" not in st.session_state:
+    st.session_state.learning_loop = SelfReferentialDiscoveryLoop()
+
 
 cluster = st.session_state.cluster
 discovery = st.session_state.discovery
@@ -54,10 +58,11 @@ harmonic_engine = st.session_state.harmonic_engine
 solver = st.session_state.solver
 tensor_engine = st.session_state.tensor_engine
 ai_core = st.session_state.ai_core
+learning_loop = st.session_state.learning_loop
 
 
 # ----------------------------------------------------
-# Sidebar Controls
+# Sidebar Research Control Panel
 # ----------------------------------------------------
 
 st.sidebar.header("Autonomous Research Controls")
@@ -68,7 +73,7 @@ if st.sidebar.button("Run Discovery Batch Cycle"):
 
 
 # ----------------------------------------------------
-# Seismic Visualization
+# Seismic Visualization Layer
 # ----------------------------------------------------
 
 st.header("🌎 Global Seismic Activity")
@@ -112,7 +117,7 @@ try:
         st.plotly_chart(fig, use_container_width=True)
 
     else:
-        st.info("Seismic feed currently unavailable.")
+        st.info("Seismic feed unavailable.")
 
 except Exception:
     st.warning("Ingestion subsystem offline.")
@@ -151,7 +156,7 @@ if st.button("Run Compression Solver Simulation"):
     final_energy = float(np.mean(history[-1]))
 
     st.metric(
-        label="Compression Field Mean Energy",
+        label="Compression Field Energy",
         value=f"{final_energy:.6f}"
     )
 
@@ -186,12 +191,14 @@ if st.button("Run Discovery Intelligence Cycle"):
 
     output = ai_core.discovery_cycle()
 
+    learning_result = learning_loop.learning_cycle(output)
+
     st.metric(
-        label="Discovery Novelty Index",
-        value=f"{output['discovery_score']:.6f}"
+        label="Self-Learning Stability Index",
+        value=f"{learning_result['self_learning_score']:.6f}"
     )
 
-    st.json(output["results"])
+    st.json(learning_result["metrics"])
 
 
 # ----------------------------------------------------
@@ -250,7 +257,7 @@ col1, col2, col3 = st.columns(3)
 
 col1.metric("Cluster Nodes", "1")
 col2.metric("Research Cycles", "Dynamic")
-col3.metric("Artifact Records", "Dynamic")
+col3.metric("Stored Artifacts", "Dynamic")
 
 
 st.markdown("---")
