@@ -2,13 +2,13 @@ import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
 
-# Core ingestion
+# Ingestion
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
 # Compute orchestration
 from core.cluster_orchestrator import ClusterOrchestrator
 
-# Research simulation modules
+# Research Simulation Engines
 from research.autonomous_discovery import AutonomousDiscoveryEngine
 from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
@@ -19,6 +19,7 @@ from research.knowledge_singularity_stabilizer import KnowledgeCoherenceSingular
 from research.civilization_evolution_simulator import CivilizationKnowledgeEvolutionSimulator
 from research.civilization_limit_theorem_engine import CivilizationLimitTheoremEngine
 from research.civilization_singularity_field import CivilizationSingularityFieldCore
+from research.omega_closure_field_engine import OmegaClosureFieldEngine
 
 
 # -------------------------------------------------------
@@ -54,6 +55,7 @@ stabilizer = init_engine("stabilizer", KnowledgeCoherenceSingularityStabilizer)
 civilization_simulator = init_engine("civilization_simulator", CivilizationKnowledgeEvolutionSimulator)
 civilization_limit_engine = init_engine("civilization_limit_engine", CivilizationLimitTheoremEngine)
 singularity_core = init_engine("singularity_core", CivilizationSingularityFieldCore)
+omega_engine = init_engine("omega_engine", OmegaClosureFieldEngine)
 
 
 # =======================================================
@@ -105,7 +107,7 @@ except Exception:
 
 
 # =======================================================
-# HARMONIC FORECAST SIMULATOR
+# Harmonic Forecast Simulation
 # =======================================================
 
 st.header("🌌 Harmonic Hazard Forecast")
@@ -113,7 +115,6 @@ st.header("🌌 Harmonic Hazard Forecast")
 t = st.slider("Simulation Time Index", 0, 365, 180)
 
 if st.button("Run Harmonic Simulation"):
-
     score = harmonic_engine.predict_risk(t)
 
     st.metric(
@@ -123,10 +124,10 @@ if st.button("Run Harmonic Simulation"):
 
 
 # =======================================================
-# SPACETIME COMPRESSION FIELD SOLVER
+# Spacetime Compression Solver
 # =======================================================
 
-st.header("🌀 Spacetime Compression Solver")
+st.header("🌀 Spacetime Compression Field Solver")
 
 steps = st.slider("Solver Simulation Steps", 10, 100, 50)
 
@@ -143,15 +144,14 @@ if st.button("Run Compression Simulation"):
 
 
 # =======================================================
-# AUTONOMOUS DISCOVERY CYCLE
+# Discovery Intelligence Cycle
 # =======================================================
 
-st.header("🤖 Autonomous Scientific Discovery Cycle")
+st.header("🤖 Autonomous Discovery Intelligence Cycle")
 
 if st.button("Run Discovery Cycle"):
 
     discovery_output = ai_core.discovery_cycle()
-
     learning_result = learning_loop.learning_cycle(discovery_output)
 
     st.metric(
@@ -163,7 +163,7 @@ if st.button("Run Discovery Cycle"):
 
 
 # =======================================================
-# CIVILIZATION SIMULATION MODULE
+# Civilization Evolution Simulation
 # =======================================================
 
 st.header("🌍 Civilization Knowledge Evolution Simulator")
@@ -183,7 +183,7 @@ if st.button("Run Civilization Simulation"):
 
 
 # =======================================================
-# SINGULARITY FIELD ANALYZER
+# Singularity Field Analyzer
 # =======================================================
 
 st.header("🌌 Civilization Singularity Field Core")
@@ -203,7 +203,27 @@ if st.button("Run Singularity Field Evaluation"):
 
 
 # =======================================================
-# ARTIFACT LEDGER VIEWER
+# Omega Closure Stability Engine
+# =======================================================
+
+st.header("🌠 Omega Knowledge Closure Field Engine")
+
+if st.button("Run Omega Closure Stability Evaluation"):
+
+    state_vector = np.random.randn(50)
+
+    result = omega_engine.evaluate(state_vector)
+
+    st.metric(
+        label="Omega Closure Stability Index",
+        value=f"{result['omega_closure_stability']:.6f}"
+    )
+
+    st.json(result["field_metrics"])
+
+
+# =======================================================
+# Artifact Ledger Viewer
 # =======================================================
 
 st.header("📚 Research Artifact Ledger")
@@ -222,7 +242,7 @@ except Exception:
 
 
 # =======================================================
-# PLATFORM STATUS PANEL
+# Platform Status Panel
 # =======================================================
 
 st.header("📊 Platform Status")
