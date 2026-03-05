@@ -3,12 +3,14 @@ import plotly.graph_objects as go
 import numpy as np
 
 from ingestion.usgs_stream import fetch_usgs_earthquakes
+
 from core.cluster_orchestrator import ClusterOrchestrator
 
 from research.autonomous_discovery import AutonomousDiscoveryEngine
 from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
 from research.harmonic_tensor_engine import HarmonicTensorDiscoveryEngine
+from research.autonomous_scientific_ai import AutonomousScientificDiscoveryAI
 
 
 # ----------------------------------------------------
@@ -20,11 +22,11 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🌍 IHRAS Integrated Hazard Research Platform")
+st.title("🌍 IHRAS Integrated Harmonic Risk & Awareness System")
 
 
 # ----------------------------------------------------
-# Initialize Engines
+# Initialize Session Engines
 # ----------------------------------------------------
 
 if "cluster" not in st.session_state:
@@ -42,27 +44,31 @@ if "solver" not in st.session_state:
 if "tensor_engine" not in st.session_state:
     st.session_state.tensor_engine = HarmonicTensorDiscoveryEngine()
 
+if "ai_core" not in st.session_state:
+    st.session_state.ai_core = AutonomousScientificDiscoveryAI()
+
 
 cluster = st.session_state.cluster
 discovery = st.session_state.discovery
 harmonic_engine = st.session_state.harmonic_engine
 solver = st.session_state.solver
 tensor_engine = st.session_state.tensor_engine
+ai_core = st.session_state.ai_core
 
 
 # ----------------------------------------------------
-# Sidebar Research Control Panel
+# Sidebar Controls
 # ----------------------------------------------------
 
 st.sidebar.header("Autonomous Research Controls")
 
-if st.sidebar.button("Run Discovery Cycle"):
+if st.sidebar.button("Run Discovery Batch Cycle"):
     jobs = discovery.run_cycle(10)
     st.sidebar.success(f"Autonomous experiments launched: {len(jobs)}")
 
 
 # ----------------------------------------------------
-# Global Seismic Visualization
+# Seismic Visualization
 # ----------------------------------------------------
 
 st.header("🌎 Global Seismic Activity")
@@ -106,21 +112,21 @@ try:
         st.plotly_chart(fig, use_container_width=True)
 
     else:
-        st.info("Seismic feed unavailable.")
+        st.info("Seismic feed currently unavailable.")
 
 except Exception:
-    st.warning("Hazard ingestion subsystem offline.")
+    st.warning("Ingestion subsystem offline.")
 
 
 # ----------------------------------------------------
-# Planetary Harmonic Forecast Engine
+# Harmonic Forecast Simulation
 # ----------------------------------------------------
 
 st.header("🌌 Harmonic Hazard Forecast")
 
 t = st.slider("Simulation Time Index", 0, 365, 180)
 
-if st.button("Run Harmonic Forecast"):
+if st.button("Run Harmonic Simulation"):
 
     score = harmonic_engine.predict_risk(t)
 
@@ -134,18 +140,18 @@ if st.button("Run Harmonic Forecast"):
 # Spacetime Compression Solver
 # ----------------------------------------------------
 
-st.header("🌀 Spacetime Compression Simulation")
+st.header("🌀 Spacetime Compression Field Solver")
 
-steps = st.slider("Compression Solver Steps", 10, 100, 50)
+steps = st.slider("Solver Simulation Steps", 10, 100, 50)
 
-if st.button("Run Compression Solver"):
+if st.button("Run Compression Solver Simulation"):
 
     history = solver.simulate(steps)
 
     final_energy = float(np.mean(history[-1]))
 
     st.metric(
-        label="Compression Field Energy",
+        label="Compression Field Mean Energy",
         value=f"{final_energy:.6f}"
     )
 
@@ -168,6 +174,24 @@ if st.button("Run Tensor Discovery Scan"):
         label="Discovery Coherence Score",
         value=f"{score:.6f}"
     )
+
+
+# ----------------------------------------------------
+# Autonomous Scientific AI Core
+# ----------------------------------------------------
+
+st.header("🤖 Autonomous Scientific Discovery AI Core")
+
+if st.button("Run Discovery Intelligence Cycle"):
+
+    output = ai_core.discovery_cycle()
+
+    st.metric(
+        label="Discovery Novelty Index",
+        value=f"{output['discovery_score']:.6f}"
+    )
+
+    st.json(output["results"])
 
 
 # ----------------------------------------------------
@@ -210,14 +234,14 @@ try:
         for a in artifacts:
             st.code(a)
     else:
-        st.info("No artifact records.")
+        st.info("No artifact records found.")
 
 except Exception:
     st.info("Ledger subsystem unavailable.")
 
 
 # ----------------------------------------------------
-# System Status Panel
+# Platform Metrics Panel
 # ----------------------------------------------------
 
 st.header("📊 Platform Status")
@@ -225,8 +249,8 @@ st.header("📊 Platform Status")
 col1, col2, col3 = st.columns(3)
 
 col1.metric("Cluster Nodes", "1")
-col2.metric("Active Research Cycles", "Dynamic")
-col3.metric("Stored Artifacts", "Dynamic")
+col2.metric("Research Cycles", "Dynamic")
+col3.metric("Artifact Records", "Dynamic")
 
 
 st.markdown("---")
