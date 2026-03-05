@@ -4,9 +4,11 @@ import numpy as np
 
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 from core.cluster_orchestrator import ClusterOrchestrator
+
 from research.autonomous_discovery import AutonomousDiscoveryEngine
 from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
+from research.harmonic_tensor_engine import HarmonicTensorDiscoveryEngine
 
 
 # ----------------------------------------------------
@@ -18,11 +20,11 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🌍 IHRAS Integrated Harmonic Risk & Awareness System")
+st.title("🌍 IHRAS Integrated Hazard Research Platform")
 
 
 # ----------------------------------------------------
-# Initialize Systems (Session Safe)
+# Initialize Engines
 # ----------------------------------------------------
 
 if "cluster" not in st.session_state:
@@ -37,14 +39,19 @@ if "harmonic_engine" not in st.session_state:
 if "solver" not in st.session_state:
     st.session_state.solver = SpacetimeCompressionSolver()
 
+if "tensor_engine" not in st.session_state:
+    st.session_state.tensor_engine = HarmonicTensorDiscoveryEngine()
+
+
 cluster = st.session_state.cluster
 discovery = st.session_state.discovery
 harmonic_engine = st.session_state.harmonic_engine
 solver = st.session_state.solver
+tensor_engine = st.session_state.tensor_engine
 
 
 # ----------------------------------------------------
-# Sidebar Research Controls
+# Sidebar Research Control Panel
 # ----------------------------------------------------
 
 st.sidebar.header("Autonomous Research Controls")
@@ -55,7 +62,7 @@ if st.sidebar.button("Run Discovery Cycle"):
 
 
 # ----------------------------------------------------
-# Seismic Visualization
+# Global Seismic Visualization
 # ----------------------------------------------------
 
 st.header("🌎 Global Seismic Activity")
@@ -109,11 +116,11 @@ except Exception:
 # Planetary Harmonic Forecast Engine
 # ----------------------------------------------------
 
-st.header("🌌 Harmonic Hazard Forecast Simulator")
+st.header("🌌 Harmonic Hazard Forecast")
 
 t = st.slider("Simulation Time Index", 0, 365, 180)
 
-if st.button("Run Harmonic Simulation"):
+if st.button("Run Harmonic Forecast"):
 
     score = harmonic_engine.predict_risk(t)
 
@@ -124,25 +131,43 @@ if st.button("Run Harmonic Simulation"):
 
 
 # ----------------------------------------------------
-# Spacetime Compression Solver Simulation
+# Spacetime Compression Solver
 # ----------------------------------------------------
 
-st.header("🌀 Spacetime Compression Field Solver")
+st.header("🌀 Spacetime Compression Simulation")
 
-steps = st.slider("Solver Simulation Steps", 10, 100, 50)
+steps = st.slider("Compression Solver Steps", 10, 100, 50)
 
-if st.button("Run Compression Simulation"):
+if st.button("Run Compression Solver"):
 
     history = solver.simulate(steps)
 
-    final_state = np.mean(history[-1])
+    final_energy = float(np.mean(history[-1]))
 
     st.metric(
-        label="Compression Field Mean Energy",
-        value=f"{final_state:.6f}"
+        label="Compression Field Energy",
+        value=f"{final_energy:.6f}"
     )
 
-    st.success("Simulation completed")
+    st.success("Solver simulation completed")
+
+
+# ----------------------------------------------------
+# Harmonic Tensor Discovery Analyzer
+# ----------------------------------------------------
+
+st.header("🧠 Harmonic Tensor Discovery Scan")
+
+if st.button("Run Tensor Discovery Scan"):
+
+    field = solver.field
+
+    score = tensor_engine.discover(field)
+
+    st.metric(
+        label="Discovery Coherence Score",
+        value=f"{score:.6f}"
+    )
 
 
 # ----------------------------------------------------
@@ -192,7 +217,7 @@ except Exception:
 
 
 # ----------------------------------------------------
-# Platform Metrics Panel
+# System Status Panel
 # ----------------------------------------------------
 
 st.header("📊 Platform Status")
