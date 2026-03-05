@@ -1,23 +1,30 @@
-import time
-from research.reproducibility_engine import ReproducibilityEngine
+import queue
+import threading
 
-class MeshRuntime:
-    def __init__(self, orchestrator):
-        self.orchestrator = orchestrator
-        self.repro_engine = ReproducibilityEngine()
+class ComputeMesh:
 
-    def execute(self, job_id: str):
-        job = self.orchestrator.jobs.get(job_id)
-        if not job:
-            return
+    def __init__(self, nodes=4):
 
-        self.orchestrator.update_status(job_id, "running")
+        self.nodes = nodes
+        self.task_queue = queue.Queue()
 
-        result = job["payload"]["compute"]()
+        for i in range(nodes):
 
-        hash_result = self.repro_engine.hash_result(result)
+            t = threading.Thread(target=self.worker_loop)
+            t.daemon = True
+            t.start()
 
-        self.orchestrator.jobs[job_id]["result"] = result
-        self.orchestrator.jobs[job_id]["hash"] = hash_result
+    def worker_loop(self):
 
-        self.orchestrator.update_status(job_id, "completed")
+        while True:
+
+            func, params = self.task_queue.get()
+
+            try:
+                func(**params)
+            finally:
+                self.task_queue.task_done()
+
+    def submit(self, func, params):
+
+        self.task_queue.put((func, params))
