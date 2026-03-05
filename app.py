@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 import numpy as np
 
 from ingestion.usgs_stream import fetch_usgs_earthquakes
+
 from core.cluster_orchestrator import ClusterOrchestrator
 
 from research.autonomous_discovery import AutonomousDiscoveryEngine
@@ -13,6 +14,7 @@ from research.autonomous_scientific_ai import AutonomousScientificDiscoveryAI
 from research.self_referential_learning_loop import SelfReferentialDiscoveryLoop
 from research.knowledge_singularity_stabilizer import KnowledgeCoherenceSingularityStabilizer
 from research.civilization_evolution_simulator import CivilizationKnowledgeEvolutionSimulator
+from research.civilization_limit_theorem_engine import CivilizationLimitTheoremEngine
 
 
 # ----------------------------------------------------
@@ -31,43 +33,22 @@ st.title("🌍 IHRAS Integrated Harmonic Risk & Awareness System")
 # Session State Initialization
 # ----------------------------------------------------
 
-if "cluster" not in st.session_state:
-    st.session_state.cluster = ClusterOrchestrator()
-
-if "discovery" not in st.session_state:
-    st.session_state.discovery = AutonomousDiscoveryEngine()
-
-if "harmonic_engine" not in st.session_state:
-    st.session_state.harmonic_engine = PlanetaryHarmonicPredictionEngine()
-
-if "solver" not in st.session_state:
-    st.session_state.solver = SpacetimeCompressionSolver()
-
-if "tensor_engine" not in st.session_state:
-    st.session_state.tensor_engine = HarmonicTensorDiscoveryEngine()
-
-if "ai_core" not in st.session_state:
-    st.session_state.ai_core = AutonomousScientificDiscoveryAI()
-
-if "learning_loop" not in st.session_state:
-    st.session_state.learning_loop = SelfReferentialDiscoveryLoop()
-
-if "stabilizer" not in st.session_state:
-    st.session_state.stabilizer = KnowledgeCoherenceSingularityStabilizer()
-
-if "civilization_simulator" not in st.session_state:
-    st.session_state.civilization_simulator = CivilizationKnowledgeEvolutionSimulator()
+def init_engine(key, cls):
+    if key not in st.session_state:
+        st.session_state[key] = cls()
+    return st.session_state[key]
 
 
-cluster = st.session_state.cluster
-discovery = st.session_state.discovery
-harmonic_engine = st.session_state.harmonic_engine
-solver = st.session_state.solver
-tensor_engine = st.session_state.tensor_engine
-ai_core = st.session_state.ai_core
-learning_loop = st.session_state.learning_loop
-stabilizer = st.session_state.stabilizer
-civilization_simulator = st.session_state.civilization_simulator
+cluster = init_engine("cluster", ClusterOrchestrator)
+discovery = init_engine("discovery", AutonomousDiscoveryEngine)
+harmonic_engine = init_engine("harmonic_engine", PlanetaryHarmonicPredictionEngine)
+solver = init_engine("solver", SpacetimeCompressionSolver)
+tensor_engine = init_engine("tensor_engine", HarmonicTensorDiscoveryEngine)
+ai_core = init_engine("ai_core", AutonomousScientificDiscoveryAI)
+learning_loop = init_engine("learning_loop", SelfReferentialDiscoveryLoop)
+stabilizer = init_engine("stabilizer", KnowledgeCoherenceSingularityStabilizer)
+civilization_simulator = init_engine("civilization_simulator", CivilizationKnowledgeEvolutionSimulator)
+civilization_limit_engine = init_engine("civilization_limit_engine", CivilizationLimitTheoremEngine)
 
 
 # ----------------------------------------------------
@@ -140,11 +121,11 @@ if st.button("Run Harmonic Simulation"):
 # Spacetime Compression Solver
 # ----------------------------------------------------
 
-st.header("🌀 Spacetime Compression Solver")
+st.header("🌀 Spacetime Compression Field Solver")
 
 steps = st.slider("Solver Simulation Steps", 10, 100, 50)
 
-if st.button("Run Compression Solver"):
+if st.button("Run Compression Simulation"):
 
     history = solver.simulate(steps)
 
@@ -157,30 +138,12 @@ if st.button("Run Compression Solver"):
 
 
 # ----------------------------------------------------
-# Harmonic Tensor Discovery Scan
+# Discovery Intelligence Cycle
 # ----------------------------------------------------
 
-st.header("🧠 Harmonic Tensor Discovery")
+st.header("🤖 Autonomous Discovery Intelligence Cycle")
 
-if st.button("Run Tensor Discovery Scan"):
-
-    field = solver.field
-
-    score = tensor_engine.discover(field)
-
-    st.metric(
-        label="Discovery Coherence Score",
-        value=f"{score:.6f}"
-    )
-
-
-# ----------------------------------------------------
-# Autonomous Scientific AI Cycle
-# ----------------------------------------------------
-
-st.header("🤖 Autonomous Scientific Discovery Cycle")
-
-if st.button("Run Discovery Intelligence Cycle"):
+if st.button("Run Discovery Cycle"):
 
     discovery_output = ai_core.discovery_cycle()
 
@@ -211,9 +174,27 @@ if st.button("Run Civilization Simulation"):
         steps=steps
     )
 
-    st.success("Civilization evolution simulation completed")
-
     st.line_chart(np.array(trajectory))
+
+
+# ----------------------------------------------------
+# Civilization Knowledge Limit Analysis
+# ----------------------------------------------------
+
+st.header("🌌 Civilization Knowledge Limit Stability Analysis")
+
+if st.button("Run Civilization Limit Evaluation"):
+
+    state_vector = np.random.randn(30)
+
+    result = civilization_limit_engine.evaluate(state_vector)
+
+    st.metric(
+        label="Civilization Limit Stability Score",
+        value=f"{result['civilization_limit_score']:.6f}"
+    )
+
+    st.json(result["metrics"])
 
 
 # ----------------------------------------------------
@@ -236,7 +217,7 @@ except Exception:
 
 
 # ----------------------------------------------------
-# Platform Status Metrics
+# Platform Metrics Panel
 # ----------------------------------------------------
 
 st.header("📊 Platform Status")
