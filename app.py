@@ -7,164 +7,159 @@ from core.cluster_orchestrator import ClusterOrchestrator
 from research.autonomous_discovery import AutonomousDiscoveryEngine
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
-# -----------------------------------
-# Configuration
-# -----------------------------------
 
-API_URL = "http://localhost:8000"
-
-cluster = ClusterOrchestrator()
-discovery = AutonomousDiscoveryEngine()
+# ----------------------------------------------------
+# Page Setup
+# ----------------------------------------------------
 
 st.set_page_config(
-    page_title="IHRAS Scientific Research Dashboard",
+    page_title="IHRAS Scientific Dashboard",
     layout="wide"
 )
 
-st.title("IHRAS – Integrated Hazard Research & Autonomous Science")
+st.title("🌍 IHRAS Integrated Hazard Research Platform")
 
-# -----------------------------------
+
+# ----------------------------------------------------
+# Initialize Core Systems
+# ----------------------------------------------------
+
+if "cluster" not in st.session_state:
+    st.session_state.cluster = ClusterOrchestrator()
+
+if "discovery" not in st.session_state:
+    st.session_state.discovery = AutonomousDiscoveryEngine()
+
+cluster = st.session_state.cluster
+discovery = st.session_state.discovery
+
+
+# ----------------------------------------------------
 # Sidebar Controls
-# -----------------------------------
+# ----------------------------------------------------
 
-st.sidebar.header("Research Controls")
+st.sidebar.header("Autonomous Research Controls")
 
-run_cycle = st.sidebar.button("Run Autonomous Research Cycle")
-submit_test = st.sidebar.button("Submit Test Cluster Job")
-
-# -----------------------------------
-# Autonomous Discovery
-# -----------------------------------
-
-if run_cycle:
-
+if st.sidebar.button("Run Discovery Cycle"):
     jobs = discovery.run_cycle(10)
+    st.sidebar.success(f"Launched {len(jobs)} autonomous experiments")
 
-    st.success(f"Launched {len(jobs)} autonomous experiments")
 
-# -----------------------------------
-# Cluster Job Submission
-# -----------------------------------
+# ----------------------------------------------------
+# Global Seismic Visualization
+# ----------------------------------------------------
 
-if submit_test:
-
-    def sample_experiment(x=3, y=4):
-        return {"result": x**2 + y**2}
-
-    job_id = cluster.submit_job(sample_experiment)
-
-    st.success(f"Cluster Job Submitted: {job_id}")
-
-# -----------------------------------
-# USGS Data Section
-# -----------------------------------
-
-st.header("Global Seismic Activity")
+st.header("🌎 Global Seismic Activity Map")
 
 try:
-
     df = fetch_usgs_earthquakes()
 
-    df = df.dropna(subset=["longitude", "latitude", "magnitude"])
+    if df is not None and not df.empty:
 
-    fig = go.Figure()
+        df = df.dropna(subset=["longitude", "latitude", "magnitude"])
 
-    fig.add_trace(
-        go.Scattergeo(
-            lon=df["longitude"],
-            lat=df["latitude"],
-            text=df["place"],
-            mode="markers",
-            marker=dict(
-                size=df["magnitude"] * 3,
-                opacity=0.7
+        # Safety clamp magnitude
+        df["magnitude"] = df["magnitude"].apply(
+            lambda x: max(float(x), 0.1)
+        )
+
+        marker_size = df["magnitude"] * 3
+
+        fig = go.Figure()
+
+        fig.add_trace(
+            go.Scattergeo(
+                lon=df["longitude"],
+                lat=df["latitude"],
+                text=df["place"],
+                mode="markers",
+                marker=dict(
+                    size=marker_size.tolist(),
+                    opacity=0.7
+                )
             )
         )
-    )
 
-    fig.update_layout(
-        geo=dict(
-            projection_type="natural earth",
-            showland=True
-        ),
-        height=600
-    )
+        fig.update_layout(
+            geo=dict(
+                projection_type="natural earth",
+                showland=True
+            ),
+            height=600
+        )
 
-    st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
+
+    else:
+        st.info("Seismic dataset currently empty.")
 
 except Exception as e:
-
-    st.warning("USGS data currently unavailable")
+    st.warning("Hazard feed unavailable — displaying safe dashboard state.")
     st.text(str(e))
 
-# -----------------------------------
-# Artifact Ledger Viewer
-# -----------------------------------
 
-st.header("Research Artifact Ledger")
+# ----------------------------------------------------
+# Experiment Console
+# ----------------------------------------------------
 
-try:
-
-    r = requests.get(f"{API_URL}/artifacts")
-
-    if r.status_code == 200:
-
-        artifacts = r.json()
-
-        if artifacts:
-
-            st.write("Stored Research Artifacts")
-
-            for a in artifacts:
-
-                st.code(a)
-
-        else:
-
-            st.info("No artifacts recorded yet")
-
-except:
-
-    st.info("Artifact server not running")
-
-# -----------------------------------
-# Discovery Metrics
-# -----------------------------------
-
-st.header("System Metrics")
-
-col1, col2, col3 = st.columns(3)
-
-col1.metric("Cluster Nodes", "1")
-col2.metric("Experiments Run", "Dynamic")
-col3.metric("Artifacts Stored", "Dynamic")
-
-# -----------------------------------
-# Research Console
-# -----------------------------------
-
-st.header("Scientific Experiment Console")
+st.header("🧪 Scientific Experiment Console")
 
 param_x = st.number_input("Parameter X", value=1.0)
 param_y = st.number_input("Parameter Y", value=2.0)
 
-if st.button("Run Custom Experiment"):
 
-    def custom_experiment(x, y):
+if st.button("Run Test Experiment"):
 
+    def experiment(x, y):
         return {
-            "experiment": "custom",
+            "experiment": "test_model",
             "parameters": {"x": x, "y": y},
-            "result": x**2 + y**2
+            "result": float(x*x + y*y)
         }
 
-    job_id = cluster.submit_job(custom_experiment, param_x, param_y)
+    job_id = cluster.submit_job(
+        experiment,
+        param_x,
+        param_y
+    )
 
-    st.success(f"Experiment launched: {job_id}")
+    st.success(f"Experiment job launched → {job_id}")
 
-# -----------------------------------
-# Footer
-# -----------------------------------
+
+# ----------------------------------------------------
+# Artifact Ledger Viewer
+# ----------------------------------------------------
+
+st.header("📚 Research Artifact Ledger")
+
+try:
+    artifacts = cluster.ledger.list_artifacts()
+
+    if artifacts:
+        st.write("Stored Experiment Artifacts")
+
+        for a in artifacts:
+            st.code(a)
+
+    else:
+        st.info("No research artifacts recorded yet.")
+
+except Exception:
+    st.info("Ledger subsystem offline.")
+
+
+# ----------------------------------------------------
+# System Metrics Panel
+# ----------------------------------------------------
+
+st.header("📊 Platform Status")
+
+col1, col2, col3 = st.columns(3)
+
+col1.metric("Cluster Nodes", "1")
+col2.metric("Running Experiments", "Dynamic")
+col3.metric("Artifact Records", "Dynamic")
+
 
 st.markdown("---")
-st.caption("IHRAS Autonomous Scientific Computing Platform")
+st.caption("IHRAS Autonomous Scientific Research Platform")
