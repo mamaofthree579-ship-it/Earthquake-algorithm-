@@ -12,6 +12,7 @@ from research.spacetime_compression_solver import SpacetimeCompressionSolver
 from research.harmonic_tensor_engine import HarmonicTensorDiscoveryEngine
 from research.autonomous_scientific_ai import AutonomousScientificDiscoveryAI
 from research.self_referential_learning_loop import SelfReferentialDiscoveryLoop
+from research.knowledge_singularity_stabilizer import KnowledgeCoherenceSingularityStabilizer
 
 
 # ----------------------------------------------------
@@ -27,7 +28,7 @@ st.title("🌍 IHRAS Integrated Harmonic Risk & Awareness System")
 
 
 # ----------------------------------------------------
-# Initialize Session Engines
+# Session State Initialization
 # ----------------------------------------------------
 
 if "cluster" not in st.session_state:
@@ -51,6 +52,9 @@ if "ai_core" not in st.session_state:
 if "learning_loop" not in st.session_state:
     st.session_state.learning_loop = SelfReferentialDiscoveryLoop()
 
+if "stabilizer" not in st.session_state:
+    st.session_state.stabilizer = KnowledgeCoherenceSingularityStabilizer()
+
 
 cluster = st.session_state.cluster
 discovery = st.session_state.discovery
@@ -59,17 +63,7 @@ solver = st.session_state.solver
 tensor_engine = st.session_state.tensor_engine
 ai_core = st.session_state.ai_core
 learning_loop = st.session_state.learning_loop
-
-
-# ----------------------------------------------------
-# Sidebar Research Control Panel
-# ----------------------------------------------------
-
-st.sidebar.header("Autonomous Research Controls")
-
-if st.sidebar.button("Run Discovery Batch Cycle"):
-    jobs = discovery.run_cycle(10)
-    st.sidebar.success(f"Autonomous experiments launched: {len(jobs)}")
+stabilizer = st.session_state.stabilizer
 
 
 # ----------------------------------------------------
@@ -107,10 +101,7 @@ try:
         )
 
         fig.update_layout(
-            geo=dict(
-                projection_type="natural earth",
-                showland=True
-            ),
+            geo=dict(projection_type="natural earth"),
             height=600
         )
 
@@ -164,7 +155,7 @@ if st.button("Run Compression Solver Simulation"):
 
 
 # ----------------------------------------------------
-# Harmonic Tensor Discovery Analyzer
+# Harmonic Tensor Discovery Scan
 # ----------------------------------------------------
 
 st.header("🧠 Harmonic Tensor Discovery Scan")
@@ -182,16 +173,16 @@ if st.button("Run Tensor Discovery Scan"):
 
 
 # ----------------------------------------------------
-# Autonomous Scientific AI Core
+# Autonomous Scientific AI Cycle
 # ----------------------------------------------------
 
-st.header("🤖 Autonomous Scientific Discovery AI Core")
+st.header("🤖 Autonomous Scientific Discovery Cycle")
 
 if st.button("Run Discovery Intelligence Cycle"):
 
-    output = ai_core.discovery_cycle()
+    discovery_output = ai_core.discovery_cycle()
 
-    learning_result = learning_loop.learning_cycle(output)
+    learning_result = learning_loop.learning_cycle(discovery_output)
 
     st.metric(
         label="Self-Learning Stability Index",
@@ -202,7 +193,27 @@ if st.button("Run Discovery Intelligence Cycle"):
 
 
 # ----------------------------------------------------
-# Experiment Console
+# Singularity Stability Regulation
+# ----------------------------------------------------
+
+st.header("🧠 Knowledge Coherence Singularity Stabilizer")
+
+if st.button("Run Stability Regulation Cycle"):
+
+    signal = solver.field.flatten()
+
+    result = stabilizer.stabilize(signal)
+
+    st.metric(
+        label="Singularity Stability Index",
+        value=f"{result['stability_score']:.6f}"
+    )
+
+    st.json(result["metrics"])
+
+
+# ----------------------------------------------------
+# Cluster Experiment Console
 # ----------------------------------------------------
 
 st.header("🧪 Scientific Experiment Console")
