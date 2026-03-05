@@ -3,31 +3,26 @@ import pandas as pd
 
 USGS_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
 
-def fetch_usgs_stream():
+def fetch_usgs_earthquakes():
 
-    try:
-        response = requests.get(USGS_URL, timeout=10)
-        response.raise_for_status()
+    r = requests.get(USGS_URL, timeout=10)
+    data = r.json()
 
-        data = response.json()
+    rows = []
 
-        records = []
+    for feature in data["features"]:
 
-        for feature in data.get("features", []):
+        props = feature["properties"]
+        coords = feature["geometry"]["coordinates"]
 
-            props = feature.get("properties", {})
-            coords = feature.get("geometry", {}).get("coordinates", [])
+        rows.append({
+            "place": props["place"],
+            "magnitude": props["mag"],
+            "longitude": coords[0],
+            "latitude": coords[1],
+            "depth": coords[2]
+        })
 
-            if len(coords) < 2:
-                continue
+    df = pd.DataFrame(rows)
 
-            records.append({
-                "longitude": coords[0],
-                "latitude": coords[1],
-                "magnitude": props.get("mag", 0)
-            })
-
-        return pd.DataFrame(records)
-
-    except Exception:
-        return pd.DataFrame()
+    return df
