@@ -2,10 +2,13 @@ import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
 
+# Core ingestion
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
+# Compute orchestration
 from core.cluster_orchestrator import ClusterOrchestrator
 
+# Research simulation modules
 from research.autonomous_discovery import AutonomousDiscoveryEngine
 from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
@@ -15,23 +18,24 @@ from research.self_referential_learning_loop import SelfReferentialDiscoveryLoop
 from research.knowledge_singularity_stabilizer import KnowledgeCoherenceSingularityStabilizer
 from research.civilization_evolution_simulator import CivilizationKnowledgeEvolutionSimulator
 from research.civilization_limit_theorem_engine import CivilizationLimitTheoremEngine
+from research.civilization_singularity_field import CivilizationSingularityFieldCore
 
 
-# ----------------------------------------------------
+# -------------------------------------------------------
 # Page Configuration
-# ----------------------------------------------------
+# -------------------------------------------------------
 
 st.set_page_config(
     page_title="IHRAS Scientific Research Platform",
     layout="wide"
 )
 
-st.title("🌍 IHRAS Integrated Harmonic Risk & Awareness System")
+st.title("🌍 IHRAS Integrated Harmonic Research Awareness System")
 
 
-# ----------------------------------------------------
-# Session State Initialization
-# ----------------------------------------------------
+# -------------------------------------------------------
+# Session Engine Initialization Helper
+# -------------------------------------------------------
 
 def init_engine(key, cls):
     if key not in st.session_state:
@@ -49,11 +53,12 @@ learning_loop = init_engine("learning_loop", SelfReferentialDiscoveryLoop)
 stabilizer = init_engine("stabilizer", KnowledgeCoherenceSingularityStabilizer)
 civilization_simulator = init_engine("civilization_simulator", CivilizationKnowledgeEvolutionSimulator)
 civilization_limit_engine = init_engine("civilization_limit_engine", CivilizationLimitTheoremEngine)
+singularity_core = init_engine("singularity_core", CivilizationSingularityFieldCore)
 
 
-# ----------------------------------------------------
-# Seismic Visualization Layer
-# ----------------------------------------------------
+# =======================================================
+# GLOBAL SEISMIC VISUALIZATION
+# =======================================================
 
 st.header("🌎 Global Seismic Activity")
 
@@ -99,9 +104,9 @@ except Exception:
     st.warning("Ingestion subsystem offline.")
 
 
-# ----------------------------------------------------
-# Harmonic Forecast Simulation
-# ----------------------------------------------------
+# =======================================================
+# HARMONIC FORECAST SIMULATOR
+# =======================================================
 
 st.header("🌌 Harmonic Hazard Forecast")
 
@@ -117,11 +122,11 @@ if st.button("Run Harmonic Simulation"):
     )
 
 
-# ----------------------------------------------------
-# Spacetime Compression Solver
-# ----------------------------------------------------
+# =======================================================
+# SPACETIME COMPRESSION FIELD SOLVER
+# =======================================================
 
-st.header("🌀 Spacetime Compression Field Solver")
+st.header("🌀 Spacetime Compression Solver")
 
 steps = st.slider("Solver Simulation Steps", 10, 100, 50)
 
@@ -137,11 +142,11 @@ if st.button("Run Compression Simulation"):
     )
 
 
-# ----------------------------------------------------
-# Discovery Intelligence Cycle
-# ----------------------------------------------------
+# =======================================================
+# AUTONOMOUS DISCOVERY CYCLE
+# =======================================================
 
-st.header("🤖 Autonomous Discovery Intelligence Cycle")
+st.header("🤖 Autonomous Scientific Discovery Cycle")
 
 if st.button("Run Discovery Cycle"):
 
@@ -157,9 +162,9 @@ if st.button("Run Discovery Cycle"):
     st.json(learning_result["metrics"])
 
 
-# ----------------------------------------------------
-# Civilization Knowledge Evolution Simulation
-# ----------------------------------------------------
+# =======================================================
+# CIVILIZATION SIMULATION MODULE
+# =======================================================
 
 st.header("🌍 Civilization Knowledge Evolution Simulator")
 
@@ -177,29 +182,29 @@ if st.button("Run Civilization Simulation"):
     st.line_chart(np.array(trajectory))
 
 
-# ----------------------------------------------------
-# Civilization Knowledge Limit Analysis
-# ----------------------------------------------------
+# =======================================================
+# SINGULARITY FIELD ANALYZER
+# =======================================================
 
-st.header("🌌 Civilization Knowledge Limit Stability Analysis")
+st.header("🌌 Civilization Singularity Field Core")
 
-if st.button("Run Civilization Limit Evaluation"):
+if st.button("Run Singularity Field Evaluation"):
 
-    state_vector = np.random.randn(30)
+    state_vector = np.random.randn(40)
 
-    result = civilization_limit_engine.evaluate(state_vector)
+    result = singularity_core.evaluate_field(state_vector)
 
     st.metric(
-        label="Civilization Limit Stability Score",
-        value=f"{result['civilization_limit_score']:.6f}"
+        label="Singularity Field Potential",
+        value=f"{result['civilization_singularity_potential']:.6f}"
     )
 
-    st.json(result["metrics"])
+    st.json(result["field_metrics"])
 
 
-# ----------------------------------------------------
-# Artifact Ledger Viewer
-# ----------------------------------------------------
+# =======================================================
+# ARTIFACT LEDGER VIEWER
+# =======================================================
 
 st.header("📚 Research Artifact Ledger")
 
@@ -216,9 +221,9 @@ except Exception:
     st.info("Ledger subsystem unavailable.")
 
 
-# ----------------------------------------------------
-# Platform Metrics Panel
-# ----------------------------------------------------
+# =======================================================
+# PLATFORM STATUS PANEL
+# =======================================================
 
 st.header("📊 Platform Status")
 
