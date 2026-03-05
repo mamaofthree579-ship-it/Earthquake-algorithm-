@@ -1,33 +1,54 @@
 import uuid
-from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+from core.artifact_ledger import ArtifactLedger
+from core.reproducibility_engine import ReproducibilityEngine
 
 class ClusterOrchestrator:
-    def __init__(self):
-        self.nodes = {}
+
+    def __init__(self, workers=4):
+        self.executor = ThreadPoolExecutor(max_workers=workers)
         self.jobs = {}
+        self.ledger = ArtifactLedger()
+        self.repro = ReproducibilityEngine(self.ledger)
 
-    def register_node(self, node_id: str):
-        self.nodes[node_id] = {
-            "status": "active",
-            "last_heartbeat": datetime.utcnow()
-        }
+    def submit_job(self, func, params):
 
-    def submit_job(self, job_payload: dict):
         job_id = str(uuid.uuid4())
+
+        experiment_hash = self.repro.hash_experiment(func, params)
+
+        future = self.executor.submit(self._run_job, job_id, func, params)
+
         self.jobs[job_id] = {
-            "payload": job_payload,
-            "status": "queued",
-            "created_at": datetime.utcnow()
+            "future": future,
+            "status": "running",
+            "hash": experiment_hash
         }
+
         return job_id
 
-    def assign_job(self, job_id: str, node_id: str):
-        if job_id in self.jobs and node_id in self.nodes:
-            self.jobs[job_id]["status"] = "assigned"
-            self.jobs[job_id]["node"] = node_id
-            return True
-        return False
+    def _run_job(self, job_id, func, params):
 
-    def update_status(self, job_id: str, status: str):
-        if job_id in self.jobs:
-            self.jobs[job_id]["status"] = status
+        result = func(**params)
+
+        self.jobs[job_id]["status"] = "complete"
+
+        artifact_id = self.ledger.store_artifact(
+            job_id,
+            result,
+            self.jobs[job_id]["hash"]
+        )
+
+        return artifact_id
+
+    def job_status(self, job_id):
+
+        job = self.jobs.get(job_id)
+
+        if not job:
+            return "unknown"
+
+        if job["future"].done():
+            return "complete"
+
+        return "running"
