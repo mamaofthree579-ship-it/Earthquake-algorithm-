@@ -1,31 +1,37 @@
-import hashlib
 import json
 import os
+import uuid
+from datetime import datetime
+
 
 class ArtifactLedger:
 
     def __init__(self, path="artifacts"):
 
         self.path = path
-        os.makedirs(path, exist_ok=True)
 
-    def store_artifact(self, job_id, result, experiment_hash):
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
+
+    def record(self, data):
+
+        artifact_id = str(uuid.uuid4())
 
         artifact = {
-            "job_id": job_id,
-            "result": result,
-            "experiment_hash": experiment_hash
+            "artifact_id": artifact_id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "data": data
         }
 
-        data = json.dumps(artifact).encode()
+        filename = os.path.join(self.path, f"{artifact_id}.json")
 
-        artifact_id = hashlib.sha256(data).hexdigest()
-
-        with open(f"{self.path}/{artifact_id}.json", "w") as f:
+        with open(filename, "w") as f:
             json.dump(artifact, f, indent=2)
 
         return artifact_id
 
     def list_artifacts(self):
 
-        return os.listdir(self.path)
+        files = os.listdir(self.path)
+
+        return files
