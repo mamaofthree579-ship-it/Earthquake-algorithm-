@@ -1,188 +1,174 @@
 import streamlit as st
-import numpy as np
-import plotly.graph_objects as go
 
-from ingestion.usgs_stream import fetch_usgs_stream
-from core.solver_kernel import SolverKernel
-from visualization.maps import render_global_map
+from core.cluster_orchestrator import ClusterOrchestrator
+from core.task_scheduler import TaskScheduler
+from core.mesh_runtime import MeshRuntime
+from governance.ethics_kernel import EthicsKernel
+from research.artifact_ledger import ArtifactLedger
 
-# -----------------------------
+
+# ------------------------------------------------
 # Page Configuration
-# -----------------------------
+# ------------------------------------------------
 
 st.set_page_config(
-    page_title="IHRAS Ultimate Research Workstation",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="IHRAS Research Workstation",
+    layout="wide"
 )
 
-# -----------------------------
-# Scientific Dark Workstation Theme
-# -----------------------------
+st.title("🌍 IHRAS Institutional Research Dashboard")
 
-st.markdown("""
-<style>
 
-body {
-    background-color: #050A14;
-}
+# ------------------------------------------------
+# System Initialization
+# ------------------------------------------------
 
-.metric-panel {
-    padding: 18px;
-    border-radius: 12px;
-    background-color: #0F172A;
-    box-shadow: 0px 0px 12px rgba(0,0,0,0.6);
-}
+if "system" not in st.session_state:
 
-</style>
-""", unsafe_allow_html=True)
+    orchestrator = ClusterOrchestrator()
+    scheduler = TaskScheduler(orchestrator)
+    runtime = MeshRuntime(orchestrator)
+    ethics = EthicsKernel()
+    ledger = ArtifactLedger()
 
-# -----------------------------
-# Sidebar Control Console
-# -----------------------------
-
-st.sidebar.title("🧠 IHRAS Control Console")
-
-workspace = st.sidebar.radio(
-    "Scientific Workspace",
-    [
-        "Telemetry Overview",
-        "Simulation Field Monitor",
-        "Cluster Federation Status",
-        "Dataset Research Explorer"
-    ]
-)
-
-st.sidebar.markdown("---")
-
-# -----------------------------
-# Streaming Research Dataset
-# -----------------------------
-
-df = fetch_usgs_stream()
-
-# -----------------------------
-# Workspace Routing
-# -----------------------------
-
-# =============================
-# TELEMETRY OVERVIEW
-# =============================
-
-if workspace == "Telemetry Overview":
-
-    st.title("🌌 Scientific Telemetry Dashboard")
-
-    col1, col2 = st.columns(2)
-
-    # Global Research Activity Map
-    with col1:
-
-        st.subheader("🗺️ Global Activity Surface")
-
-        if not df.empty:
-
-            fig = render_global_map(
-                df["longitude"].tolist(),
-                df["latitude"].tolist(),
-                df["magnitude"].tolist()
-            )
-
-            st.plotly_chart(fig, use_container_width=True)
-
-        else:
-            st.warning("Research stream unavailable")
-
-    # Kernel Activity Gauge Monitor
-    with col2:
-
-        st.subheader("🧠 Kernel Telemetry Index")
-
-        kernel = SolverKernel()
-        field = kernel.step()
-
-        activity_index = float(
-            np.mean(
-                np.abs(field) *
-                np.log(np.abs(field) + 1e-8)
-            )
-        )
-
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=activity_index,
-            title={"text": "Scientific Activity Signal"},
-            gauge={
-                "axis": {"range": [0, 1]},
-                "bar": {"color": "#00FFD4"}
-            }
-        ))
-
-        st.plotly_chart(fig, use_container_width=True)
-
-# =============================
-# SIMULATION FIELD MONITOR
-# =============================
-
-elif workspace == "Simulation Field Monitor":
-
-    st.title("🧪 Scientific Simulation Workspace")
-
-    kernel = SolverKernel()
-
-    if st.button("Execute Simulation Step"):
-
-        field = kernel.step()
-
-        fig = go.Figure(
-            go.Heatmap(
-                z=field,
-                colorscale="Viridis"
-            )
-        )
-
-        fig.update_layout(
-            title="Research Simulation Field Surface"
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
-# =============================
-# CLUSTER FEDERATION STATUS
-# =============================
-
-elif workspace == "Cluster Federation Status":
-
-    st.title("☁️ Multi-Node Scientific Federation")
-
-    cluster_nodes = {
-        "Research Node Alpha": np.random.rand(),
-        "Research Node Beta": np.random.rand(),
-        "Research Node Gamma": np.random.rand(),
-        "Research Node Delta": np.random.rand()
+    st.session_state.system = {
+        "orchestrator": orchestrator,
+        "scheduler": scheduler,
+        "runtime": runtime,
+        "ethics": ethics,
+        "ledger": ledger
     }
 
-    fig = go.Figure(go.Bar(
-        x=list(cluster_nodes.keys()),
-        y=list(cluster_nodes.values())
-    ))
+system = st.session_state.system
 
-    fig.update_layout(
-        title="Federated Compute Health Index"
-    )
 
-    st.plotly_chart(fig, use_container_width=True)
+# ------------------------------------------------
+# Sidebar Controls
+# ------------------------------------------------
 
-# =============================
-# DATASET EXPLORER
-# =============================
+st.sidebar.header("Cluster Controls")
 
-elif workspace == "Dataset Research Explorer":
+node_id = st.sidebar.text_input("Register Node ID")
 
-    st.title("📊 Scientific Dataset Laboratory")
+if st.sidebar.button("Register Node"):
+    if node_id:
+        system["orchestrator"].register_node(node_id)
+        st.sidebar.success(f"Node '{node_id}' registered")
+    else:
+        st.sidebar.warning("Enter a node ID")
 
-    if df.empty:
-        st.warning("No research dataset stream available")
+
+st.sidebar.divider()
+
+st.sidebar.subheader("Cluster Status")
+
+nodes = system["orchestrator"].nodes
+
+if nodes:
+    for n in nodes:
+        st.sidebar.write(f"🖥 {n}")
+else:
+    st.sidebar.info("No nodes registered")
+
+
+# ------------------------------------------------
+# Job Submission
+# ------------------------------------------------
+
+st.header("🔬 Submit Research Job")
+
+
+def sample_compute():
+    return {"value": 42}
+
+
+if st.button("Run Sample Compute Job"):
+
+    payload = {
+        "compute": sample_compute
+    }
+
+    approved, message = system["ethics"].validate(payload)
+
+    if not approved:
+        st.error(message)
 
     else:
-        st.dataframe(df)
+
+        job_id = system["orchestrator"].submit_job(payload)
+
+        system["scheduler"].schedule()
+
+        system["runtime"].execute(job_id)
+
+        job = system["orchestrator"].jobs[job_id]
+
+        # Record artifact
+        artifact_hash = system["ledger"].record(job_id, job)
+
+        job["artifact_hash"] = artifact_hash
+
+        st.session_state["last_job"] = job
+
+
+# ------------------------------------------------
+# Job Output Section
+# ------------------------------------------------
+
+st.header("📊 Job Output")
+
+if "last_job" in st.session_state:
+
+    job = st.session_state["last_job"]
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("Status", job.get("status", "N/A"))
+    col2.metric("Node", job.get("node", "N/A"))
+    col3.metric("Artifact Hash", job.get("artifact_hash", "Pending"))
+
+    st.subheader("Job Result")
+
+    st.json(job)
+
+else:
+    st.info("No job executed yet.")
+
+
+# ------------------------------------------------
+# Artifact Ledger Explorer
+# ------------------------------------------------
+
+st.header("📚 Artifact Ledger")
+
+records = system["ledger"].load_all()
+
+if records:
+
+    st.write(f"Total Experiments Recorded: {len(records)}")
+
+    for record in records:
+
+        with st.expander(f"Experiment {record['job_id']}"):
+
+            st.write("Timestamp:", record["timestamp"])
+            st.write("Node:", record["node"])
+            st.write("Status:", record["status"])
+            st.write("Artifact Hash:", record["artifact_hash"])
+
+            st.subheader("Result")
+
+            st.json(record["result"])
+
+else:
+
+    st.info("No artifacts recorded yet.")
+
+
+# ------------------------------------------------
+# Footer
+# ------------------------------------------------
+
+st.divider()
+
+st.caption("IHRAS • Integrated Harmonic Risk and Awareness System • Research Platform v1")
