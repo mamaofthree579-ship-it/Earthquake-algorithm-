@@ -3,7 +3,6 @@ import plotly.graph_objects as go
 import numpy as np
 
 from ingestion.usgs_stream import fetch_usgs_earthquakes
-
 from core.cluster_orchestrator import ClusterOrchestrator
 
 from research.autonomous_discovery import AutonomousDiscoveryEngine
@@ -13,6 +12,7 @@ from research.harmonic_tensor_engine import HarmonicTensorDiscoveryEngine
 from research.autonomous_scientific_ai import AutonomousScientificDiscoveryAI
 from research.self_referential_learning_loop import SelfReferentialDiscoveryLoop
 from research.knowledge_singularity_stabilizer import KnowledgeCoherenceSingularityStabilizer
+from research.civilization_evolution_simulator import CivilizationKnowledgeEvolutionSimulator
 
 
 # ----------------------------------------------------
@@ -55,6 +55,9 @@ if "learning_loop" not in st.session_state:
 if "stabilizer" not in st.session_state:
     st.session_state.stabilizer = KnowledgeCoherenceSingularityStabilizer()
 
+if "civilization_simulator" not in st.session_state:
+    st.session_state.civilization_simulator = CivilizationKnowledgeEvolutionSimulator()
+
 
 cluster = st.session_state.cluster
 discovery = st.session_state.discovery
@@ -64,6 +67,7 @@ tensor_engine = st.session_state.tensor_engine
 ai_core = st.session_state.ai_core
 learning_loop = st.session_state.learning_loop
 stabilizer = st.session_state.stabilizer
+civilization_simulator = st.session_state.civilization_simulator
 
 
 # ----------------------------------------------------
@@ -136,11 +140,11 @@ if st.button("Run Harmonic Simulation"):
 # Spacetime Compression Solver
 # ----------------------------------------------------
 
-st.header("🌀 Spacetime Compression Field Solver")
+st.header("🌀 Spacetime Compression Solver")
 
 steps = st.slider("Solver Simulation Steps", 10, 100, 50)
 
-if st.button("Run Compression Solver Simulation"):
+if st.button("Run Compression Solver"):
 
     history = solver.simulate(steps)
 
@@ -151,14 +155,12 @@ if st.button("Run Compression Solver Simulation"):
         value=f"{final_energy:.6f}"
     )
 
-    st.success("Solver simulation completed")
-
 
 # ----------------------------------------------------
 # Harmonic Tensor Discovery Scan
 # ----------------------------------------------------
 
-st.header("🧠 Harmonic Tensor Discovery Scan")
+st.header("🧠 Harmonic Tensor Discovery")
 
 if st.button("Run Tensor Discovery Scan"):
 
@@ -193,50 +195,25 @@ if st.button("Run Discovery Intelligence Cycle"):
 
 
 # ----------------------------------------------------
-# Singularity Stability Regulation
+# Civilization Knowledge Evolution Simulation
 # ----------------------------------------------------
 
-st.header("🧠 Knowledge Coherence Singularity Stabilizer")
+st.header("🌍 Civilization Knowledge Evolution Simulator")
 
-if st.button("Run Stability Regulation Cycle"):
+steps = st.slider("Civilization Evolution Steps", 10, 100, 30)
 
-    signal = solver.field.flatten()
+if st.button("Run Civilization Simulation"):
 
-    result = stabilizer.stabilize(signal)
+    initial_state = np.random.randn(20)
 
-    st.metric(
-        label="Singularity Stability Index",
-        value=f"{result['stability_score']:.6f}"
+    trajectory = civilization_simulator.simulate(
+        initial_state,
+        steps=steps
     )
 
-    st.json(result["metrics"])
+    st.success("Civilization evolution simulation completed")
 
-
-# ----------------------------------------------------
-# Cluster Experiment Console
-# ----------------------------------------------------
-
-st.header("🧪 Scientific Experiment Console")
-
-x = st.number_input("Parameter X", value=1.0)
-y = st.number_input("Parameter Y", value=2.0)
-
-if st.button("Run Test Experiment"):
-
-    def experiment(x, y):
-        return {
-            "experiment": "test_model",
-            "parameters": {"x": x, "y": y},
-            "result": float(x*x + y*y)
-        }
-
-    job_id = cluster.submit_job(
-        experiment,
-        x,
-        y
-    )
-
-    st.success(f"Experiment job launched → {job_id}")
+    st.line_chart(np.array(trajectory))
 
 
 # ----------------------------------------------------
@@ -259,7 +236,7 @@ except Exception:
 
 
 # ----------------------------------------------------
-# Platform Metrics Panel
+# Platform Status Metrics
 # ----------------------------------------------------
 
 st.header("📊 Platform Status")
@@ -267,8 +244,8 @@ st.header("📊 Platform Status")
 col1, col2, col3 = st.columns(3)
 
 col1.metric("Cluster Nodes", "1")
-col2.metric("Research Cycles", "Dynamic")
-col3.metric("Stored Artifacts", "Dynamic")
+col2.metric("Research Cycles", "Active")
+col3.metric("Artifact Records", "Dynamic")
 
 
 st.markdown("---")
