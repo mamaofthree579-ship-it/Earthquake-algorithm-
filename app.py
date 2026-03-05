@@ -2,16 +2,13 @@ import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
 
-# ----------------------------------------------------
 # Ingestion Layer
-# ----------------------------------------------------
-
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
-# Core Compute Orchestration
+# Core Runtime
 from core.cluster_orchestrator import ClusterOrchestrator
 
-# Simulation Research Engines
+# Simulation Engines
 from research.autonomous_discovery import AutonomousDiscoveryEngine
 from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
@@ -31,11 +28,11 @@ from research.universal_knowledge_mesh_core import UniversalKnowledgeMeshCore
 # ----------------------------------------------------
 
 st.set_page_config(
-    page_title="IHRAS Scientific Research Platform",
+    page_title="IHRAS Research Platform Prototype",
     layout="wide"
 )
 
-st.title("🌍 IHRAS Integrated Harmonic Research Awareness System")
+st.title("🌍 IHRAS Scientific Simulation Dashboard")
 
 
 # ----------------------------------------------------
@@ -48,25 +45,21 @@ def init_engine(key, cls):
     return st.session_state[key]
 
 
-# Initialize All Systems
+# Initialize Systems
 cluster = init_engine("cluster", ClusterOrchestrator)
-discovery = init_engine("discovery", AutonomousDiscoveryEngine)
 harmonic_engine = init_engine("harmonic_engine", PlanetaryHarmonicPredictionEngine)
 solver = init_engine("solver", SpacetimeCompressionSolver)
-tensor_engine = init_engine("tensor_engine", HarmonicTensorDiscoveryEngine)
 ai_core = init_engine("ai_core", AutonomousScientificDiscoveryAI)
 learning_loop = init_engine("learning_loop", SelfReferentialDiscoveryLoop)
-stabilizer = init_engine("stabilizer", KnowledgeCoherenceSingularityStabilizer)
 civilization_simulator = init_engine("civilization_simulator", CivilizationKnowledgeEvolutionSimulator)
-civilization_limit_engine = init_engine("civilization_limit_engine", CivilizationLimitTheoremEngine)
 singularity_core = init_engine("singularity_core", CivilizationSingularityFieldCore)
 omega_engine = init_engine("omega_engine", OmegaClosureFieldEngine)
 mesh_core = init_engine("mesh_core", UniversalKnowledgeMeshCore)
 
 
-# =====================================================
-# GLOBAL SEISMIC VISUALIZATION
-# =====================================================
+# ----------------------------------------------------
+# Seismic Visualization
+# ----------------------------------------------------
 
 st.header("🌎 Global Seismic Activity")
 
@@ -77,9 +70,7 @@ try:
 
         df = df.dropna(subset=["longitude", "latitude", "magnitude"])
 
-        df["magnitude"] = df["magnitude"].apply(
-            lambda x: max(float(x), 0.1)
-        )
+        df["magnitude"] = df["magnitude"].clip(lower=0.1)
 
         marker_size = (df["magnitude"] * 3).clip(lower=0.5)
 
@@ -89,7 +80,6 @@ try:
             go.Scattergeo(
                 lon=df["longitude"],
                 lat=df["latitude"],
-                text=df["place"],
                 mode="markers",
                 marker=dict(
                     size=marker_size.tolist(),
@@ -112,13 +102,13 @@ except Exception:
     st.warning("Ingestion subsystem offline.")
 
 
-# =====================================================
-# Harmonic Forecast Simulation
-# =====================================================
+# ----------------------------------------------------
+# Harmonic Simulation Panel
+# ----------------------------------------------------
 
-st.header("🌌 Harmonic Hazard Forecast")
+st.header("🌌 Harmonic Simulation")
 
-t = st.slider("Simulation Time Index", 0, 365, 180)
+t = st.slider("Simulation Index", 0, 365, 180)
 
 if st.button("Run Harmonic Simulation"):
     score = harmonic_engine.predict_risk(t)
@@ -129,31 +119,29 @@ if st.button("Run Harmonic Simulation"):
     )
 
 
-# =====================================================
-# Spacetime Compression Solver
-# =====================================================
+# ----------------------------------------------------
+# Compression Solver Simulation
+# ----------------------------------------------------
 
-st.header("🌀 Spacetime Compression Field Solver")
+st.header("🌀 Compression Solver")
 
-steps = st.slider("Solver Simulation Steps", 10, 100, 50)
+steps = st.slider("Solver Steps", 10, 100, 50)
 
 if st.button("Run Compression Simulation"):
 
     history = solver.simulate(steps)
 
-    final_energy = float(np.mean(history[-1]))
-
     st.metric(
-        label="Compression Field Energy",
-        value=f"{final_energy:.6f}"
+        label="Field Energy Estimate",
+        value=f"{float(np.mean(history[-1])):.6f}"
     )
 
 
-# =====================================================
-# Autonomous Discovery Cycle
-# =====================================================
+# ----------------------------------------------------
+# Discovery Intelligence Cycle
+# ----------------------------------------------------
 
-st.header("🤖 Autonomous Discovery Intelligence Cycle")
+st.header("🤖 Discovery Intelligence Cycle")
 
 if st.button("Run Discovery Cycle"):
 
@@ -168,13 +156,13 @@ if st.button("Run Discovery Cycle"):
     st.json(learning_result["metrics"])
 
 
-# =====================================================
-# Civilization Simulation Module
-# =====================================================
+# ----------------------------------------------------
+# Civilization Simulation
+# ----------------------------------------------------
 
-st.header("🌍 Civilization Knowledge Evolution Simulator")
+st.header("🌍 Civilization Knowledge Simulation")
 
-steps = st.slider("Civilization Evolution Steps", 10, 100, 30)
+steps = st.slider("Civilization Steps", 10, 100, 30)
 
 if st.button("Run Civilization Simulation"):
 
@@ -188,53 +176,49 @@ if st.button("Run Civilization Simulation"):
     st.line_chart(np.array(trajectory))
 
 
-# =====================================================
-# Singularity Field Analyzer
-# =====================================================
+# ----------------------------------------------------
+# Singularity Field Analysis
+# ----------------------------------------------------
 
-st.header("🌌 Civilization Singularity Field Core")
+st.header("🌌 Knowledge Singularity Field")
 
-if st.button("Run Singularity Field Evaluation"):
+if st.button("Evaluate Singularity Field"):
 
     state_vector = np.random.randn(40)
 
     result = singularity_core.evaluate_field(state_vector)
 
     st.metric(
-        label="Singularity Field Potential",
+        label="Singularity Potential",
         value=f"{result['civilization_singularity_potential']:.6f}"
     )
 
-    st.json(result["field_metrics"])
 
+# ----------------------------------------------------
+# Omega Stability Engine
+# ----------------------------------------------------
 
-# =====================================================
-# Omega Closure Stability Engine
-# =====================================================
+st.header("🌠 Omega Closure Stability")
 
-st.header("🌠 Omega Knowledge Closure Field Engine")
-
-if st.button("Run Omega Closure Stability Evaluation"):
+if st.button("Run Omega Stability Evaluation"):
 
     state_vector = np.random.randn(50)
 
     result = omega_engine.evaluate(state_vector)
 
     st.metric(
-        label="Omega Closure Stability Index",
+        label="Omega Closure Index",
         value=f"{result['omega_closure_stability']:.6f}"
     )
 
-    st.json(result["field_metrics"])
 
+# ----------------------------------------------------
+# Knowledge Mesh Core
+# ----------------------------------------------------
 
-# =====================================================
-# Universal Knowledge Mesh Core
-# =====================================================
+st.header("🌐 Universal Knowledge Mesh Core")
 
-st.header("🌐 Universal Knowledge Mesh Civilization Core")
-
-if st.button("Run Mesh Civilization Simulation"):
+if st.button("Run Mesh Simulation"):
 
     field_state = np.random.randn(60)
 
@@ -245,12 +229,10 @@ if st.button("Run Mesh Civilization Simulation"):
         value=f"{result['universal_mesh_coherence_score']:.6f}"
     )
 
-    st.json(result["mesh_metrics"])
 
-
-# =====================================================
+# ----------------------------------------------------
 # Artifact Ledger Viewer
-# =====================================================
+# ----------------------------------------------------
 
 st.header("📚 Research Artifact Ledger")
 
@@ -267,9 +249,9 @@ except Exception:
     st.info("Ledger subsystem unavailable.")
 
 
-# =====================================================
-# Platform Status Panel
-# =====================================================
+# ----------------------------------------------------
+# Platform Status
+# ----------------------------------------------------
 
 st.header("📊 Platform Status")
 
@@ -281,4 +263,4 @@ col3.metric("Artifact Records", "Dynamic")
 
 
 st.markdown("---")
-st.caption("IHRAS Autonomous Scientific Research Platform Prototype")
+st.caption("IHRAS Research Simulation Prototype")
