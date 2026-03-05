@@ -1,4 +1,5 @@
 import uuid
+from core.artifact_ledger import ArtifactLedger
 
 class ClusterOrchestrator:
 
