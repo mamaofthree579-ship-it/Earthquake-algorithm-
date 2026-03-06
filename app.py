@@ -1,174 +1,196 @@
 # app.py
 
-import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 
-# Core infrastructure
-from core.cluster_orchestrator import ClusterOrchestrator
-from core.reproducibility_engine import ReproducibilityEngine
-
-# Ingestion
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
-# Research engines
-from research.harmonic_prediction_engine import HarmonicPredictionEngine
+from core.cluster_orchestrator import ClusterOrchestrator
+from core.mesh_federation import MeshFederation
+
+from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
 from research.harmonic_tensor_discovery import HarmonicTensorDiscovery
 from research.discovery_fabric import AutonomousDiscoveryAI
+from research.reproducibility_engine import ReproducibilityEngine
 
 
-# -----------------------------
-# Initialize Engines
-# -----------------------------
+# ---------------------------------------------------------
+# System Initialization
+# ---------------------------------------------------------
 
 cluster = ClusterOrchestrator()
-repro_engine = ReproducibilityEngine()
+federation = MeshFederation()
 
-harmonic_engine = HarmonicPredictionEngine()
+harmonic_engine = PlanetaryHarmonicPredictionEngine()
 compression_solver = SpacetimeCompressionSolver()
 tensor_engine = HarmonicTensorDiscovery()
+
 discovery_ai = AutonomousDiscoveryAI()
+repro_engine = ReproducibilityEngine()
 
 
-# -----------------------------
-# UI
-# -----------------------------
+# ---------------------------------------------------------
+# Streamlit Page
+# ---------------------------------------------------------
 
 st.set_page_config(
     page_title="IHRAS Scientific Research Platform",
     layout="wide"
 )
 
-st.title("🌍 IHRAS Planetary Harmonic Research System")
+st.title("🌍 IHRAS Planetary Research Platform")
 
 
-# -----------------------------
+# ---------------------------------------------------------
 # Fetch Earthquake Data
-# -----------------------------
+# ---------------------------------------------------------
 
-try:
+df = fetch_usgs_earthquakes()
 
-    data = fetch_usgs_earthquakes()
+if df is None or df.empty:
+    st.warning("USGS data currently unavailable")
+    df = pd.DataFrame(columns=["latitude", "longitude", "magnitude"])
 
-    if data is None or len(data) == 0:
-        st.warning("USGS data currently unavailable.")
-        df = pd.DataFrame()
+# clean data
+df = df.dropna(subset=["latitude", "longitude", "magnitude"])
 
-    else:
-        df = pd.DataFrame(data)
+# ensure numeric
+df["magnitude"] = pd.to_numeric(df["magnitude"], errors="coerce")
 
-        df = df.dropna(subset=["longitude", "latitude", "magnitude"])
-
-except Exception as e:
-
-    st.warning("USGS data currently unavailable.")
-    df = pd.DataFrame()
+# safe marker sizes
+df["marker_size"] = df["magnitude"].clip(lower=0) * 3
 
 
-# -----------------------------
-# Visualization
-# -----------------------------
+# ---------------------------------------------------------
+# Plot Earthquake Map
+# ---------------------------------------------------------
+
+fig = go.Figure()
 
 if not df.empty:
-
-    # Ensure marker size always positive
-    marker_sizes = (df["magnitude"].abs() + 0.1) * 4
-
-    fig = go.Figure()
 
     fig.add_trace(
         go.Scattergeo(
             lon=df["longitude"],
             lat=df["latitude"],
-            text=df["magnitude"],
             mode="markers",
             marker=dict(
-                size=marker_sizes,
+                size=df["marker_size"],
                 opacity=0.7
-            )
+            ),
+            text=df["magnitude"]
         )
     )
 
-    fig.update_layout(
-        title="Global Seismic Activity",
-        geo=dict(
-            showland=True
-        )
-    )
+fig.update_layout(
+    geo=dict(
+        projection_type="natural earth"
+    ),
+    title="Global Seismic Activity"
+)
 
-    st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True)
 
 
-# -----------------------------
-# Research Engines
-# -----------------------------
+# ---------------------------------------------------------
+# Submit Research Job
+# ---------------------------------------------------------
+
+st.subheader("Submit Scientific Experiment")
+
+if st.button("Run Experiment"):
+
+    payload = {
+        "experiment": "harmonic_analysis"
+    }
+
+    result = cluster.submit_job(payload)
+
+    st.success(f"Job submitted: {result}")
+
+
+# ---------------------------------------------------------
+# Harmonic Analysis
+# ---------------------------------------------------------
+
+st.subheader("Planetary Harmonic Prediction")
 
 if not df.empty:
 
-    st.subheader("Scientific Analysis Engines")
+    harmonic_result = harmonic_engine.analyze(df)
 
-    # Harmonic Prediction
-    harmonic_results = harmonic_engine.analyze(df)
-
-    # Spacetime Compression
-    compression_results = compression_solver.compute(df)
-
-    # Harmonic Tensor Discovery
-    tensor_results = tensor_engine.discover(df)
-
-    # Autonomous Discovery
-    discovery_results = discovery_ai.analyze(df)
+    st.write(harmonic_result)
 
 
-    st.write("Harmonic Prediction Results")
-    st.json(harmonic_results)
+# ---------------------------------------------------------
+# Spacetime Compression Solver
+# ---------------------------------------------------------
 
-    st.write("Spacetime Compression Results")
-    st.json(compression_results)
+st.subheader("Spacetime Compression Field")
 
-    st.write("Harmonic Tensor Structures")
-    st.json(tensor_results)
+if not df.empty:
 
-    st.write("Autonomous Discovery AI")
-    st.json(discovery_results)
+    compression_result = compression_solver.solve(df)
 
-
-# -----------------------------
-# Reproducibility Record
-# -----------------------------
-
-payload = {
-    "rows": len(df)
-}
-
-record = repro_engine.create_reproducibility_record(payload)
-
-st.subheader("Reproducibility Record")
-
-st.json(record)
+    st.write(compression_result)
 
 
-# -----------------------------
-# Cluster Job Submission
-# -----------------------------
+# ---------------------------------------------------------
+# Harmonic Tensor Discovery
+# ---------------------------------------------------------
 
-if st.button("Submit Research Job to Cluster"):
+st.subheader("Harmonic Tensor Discovery")
 
-    job = {
-        "task": "planetary_analysis",
-        "data_rows": len(df)
-    }
+if not df.empty:
 
-    job_id = cluster.submit_job(job)
+    tensor_result = tensor_engine.discover(df)
 
-    st.success(f"Job submitted to research cluster: {job_id}")
+    st.write(tensor_result)
 
 
-# -----------------------------
-# Footer
-# -----------------------------
+# ---------------------------------------------------------
+# Autonomous Discovery AI
+# ---------------------------------------------------------
 
-st.markdown("---")
+st.subheader("Autonomous Discovery AI")
 
-st.caption("IHRAS — Integrated Harmonic Research and Analysis System")
+if not df.empty:
+
+    discoveries = discovery_ai.generate_hypotheses(df)
+
+    st.write(discoveries)
+
+
+# ---------------------------------------------------------
+# Reproducibility Engine
+# ---------------------------------------------------------
+
+st.subheader("Reproducibility Verification")
+
+experiment_data = {"sample": "test"}
+
+hash_id = repro_engine.hash_experiment(experiment_data)
+
+st.write("Experiment Hash:", hash_id)
+
+
+# ---------------------------------------------------------
+# Federation Mesh
+# ---------------------------------------------------------
+
+st.subheader("Scientific Mesh Federation")
+
+if st.button("Register Local Node"):
+
+    node_id = federation.register_node(
+        "local_node",
+        "http://localhost:8000"
+    )
+
+    st.success(f"Node Registered: {node_id}")
+
+nodes = federation.list_nodes()
+
+st.write("Federation Nodes:", nodes)
