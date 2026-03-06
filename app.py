@@ -17,7 +17,7 @@ from research.discovery_fabric import AutonomousDiscoveryAI
 
 
 # ----------------------------------------------------
-# Page Configuration
+# Page Config
 # ----------------------------------------------------
 
 st.set_page_config(
@@ -29,7 +29,7 @@ st.title("🌍 IHRAS Scientific Simulation Dashboard")
 
 
 # ----------------------------------------------------
-# Runtime Initialization
+# Engine Initialization
 # ----------------------------------------------------
 
 def init_engine(key, cls):
@@ -83,7 +83,7 @@ except Exception:
 
 
 # ----------------------------------------------------
-# Visualization Layer
+# Visualization
 # ----------------------------------------------------
 
 if df is not None:
@@ -117,7 +117,7 @@ if df is not None:
 
 
 # ----------------------------------------------------
-# Harmonic Simulation
+# Harmonic Prediction Simulation (FIXED — Important)
 # ----------------------------------------------------
 
 st.header("🌌 Harmonic Prediction Simulation")
@@ -126,11 +126,12 @@ t = st.slider("Simulation Index", 0, 365, 180)
 
 if st.button("Run Harmonic Simulation"):
 
-    score = harmonic_engine.analyze(
-        df if df is not None else st.session_state.get("last_df", None)
-    )
+    score = harmonic_engine.predict_risk(t)
 
-    st.json(score)
+    st.metric(
+        label="Hazard Resonance Index",
+        value=f"{score:.6f}"
+    )
 
 
 # ----------------------------------------------------
@@ -173,43 +174,25 @@ if df is not None and st.button("Run Discovery Analysis"):
 
 
 # ----------------------------------------------------
-# Institutional Runtime OS Panel
-# ----------------------------------------------------
-
-st.header("🏛 Institutional Scientific Runtime OS")
-
-if st.button("Run Institutional Research Task"):
-
-    def scientific_task():
-        return {"status": "runtime_task_completed"}
-
-    job_id = runtime_os.submit_scientific_job(
-        scientific_task
-    )
-
-    st.success(f"Scientific Job Submitted: {job_id}")
-
-
-# ----------------------------------------------------
 # Cluster Runtime Panel
 # ----------------------------------------------------
 
 st.header("📡 Research Cluster Runtime")
 
-if st.button("Submit Cluster Research Task"):
+if st.button("Submit Research Task"):
 
-    payload = {
+    job_payload = {
         "task": "simulation_analysis",
         "dataset_rows": 0 if df is None else len(df)
     }
 
-    job_id = cluster.submit_job(payload)
+    job_id = cluster.submit_job(job_payload)
 
     st.success(f"Cluster job submitted: {job_id}")
 
 
 # ----------------------------------------------------
-# Artifact Ledger
+# Artifact Ledger Viewer
 # ----------------------------------------------------
 
 st.header("📚 Research Artifact Ledger")
