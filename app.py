@@ -1,196 +1,174 @@
 # app.py
 
+import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import streamlit as st
 
+# Core infrastructure
+from core.cluster_orchestrator import ClusterOrchestrator
+from core.reproducibility_engine import ReproducibilityEngine
+
+# Ingestion
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
-from core.cluster_orchestrator import ClusterOrchestrator
-from core.mesh_federation import MeshFederation
-
-from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
+# Research engines
+from research.harmonic_prediction_engine import HarmonicPredictionEngine
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
 from research.harmonic_tensor_discovery import HarmonicTensorDiscovery
 from research.discovery_fabric import AutonomousDiscoveryAI
-from research.reproducibility_engine import ReproducibilityEngine
 
 
-# ---------------------------------------------------------
-# System Initialization
-# ---------------------------------------------------------
+# -----------------------------
+# Initialize Engines
+# -----------------------------
 
 cluster = ClusterOrchestrator()
-federation = MeshFederation()
-
-harmonic_engine = PlanetaryHarmonicPredictionEngine()
-compression_solver = SpacetimeCompressionSolver()
-tensor_engine = HarmonicTensorDiscovery()
-
-discovery_ai = AutonomousDiscoveryAI()
 repro_engine = ReproducibilityEngine()
 
+harmonic_engine = HarmonicPredictionEngine()
+compression_solver = SpacetimeCompressionSolver()
+tensor_engine = HarmonicTensorDiscovery()
+discovery_ai = AutonomousDiscoveryAI()
 
-# ---------------------------------------------------------
-# Streamlit Page
-# ---------------------------------------------------------
+
+# -----------------------------
+# UI
+# -----------------------------
 
 st.set_page_config(
     page_title="IHRAS Scientific Research Platform",
     layout="wide"
 )
 
-st.title("🌍 IHRAS Planetary Research Platform")
+st.title("🌍 IHRAS Planetary Harmonic Research System")
 
 
-# ---------------------------------------------------------
+# -----------------------------
 # Fetch Earthquake Data
-# ---------------------------------------------------------
+# -----------------------------
 
-df = fetch_usgs_earthquakes()
+try:
 
-if df is None or df.empty:
-    st.warning("USGS data currently unavailable")
-    df = pd.DataFrame(columns=["latitude", "longitude", "magnitude"])
+    data = fetch_usgs_earthquakes()
 
-# clean data
-df = df.dropna(subset=["latitude", "longitude", "magnitude"])
+    if data is None or len(data) == 0:
+        st.warning("USGS data currently unavailable.")
+        df = pd.DataFrame()
 
-# ensure numeric
-df["magnitude"] = pd.to_numeric(df["magnitude"], errors="coerce")
+    else:
+        df = pd.DataFrame(data)
 
-# safe marker sizes
-df["marker_size"] = df["magnitude"].clip(lower=0) * 3
+        df = df.dropna(subset=["longitude", "latitude", "magnitude"])
+
+except Exception as e:
+
+    st.warning("USGS data currently unavailable.")
+    df = pd.DataFrame()
 
 
-# ---------------------------------------------------------
-# Plot Earthquake Map
-# ---------------------------------------------------------
-
-fig = go.Figure()
+# -----------------------------
+# Visualization
+# -----------------------------
 
 if not df.empty:
+
+    # Ensure marker size always positive
+    marker_sizes = (df["magnitude"].abs() + 0.1) * 4
+
+    fig = go.Figure()
 
     fig.add_trace(
         go.Scattergeo(
             lon=df["longitude"],
             lat=df["latitude"],
+            text=df["magnitude"],
             mode="markers",
             marker=dict(
-                size=df["marker_size"],
+                size=marker_sizes,
                 opacity=0.7
-            ),
-            text=df["magnitude"]
+            )
         )
     )
 
-fig.update_layout(
-    geo=dict(
-        projection_type="natural earth"
-    ),
-    title="Global Seismic Activity"
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-
-# ---------------------------------------------------------
-# Submit Research Job
-# ---------------------------------------------------------
-
-st.subheader("Submit Scientific Experiment")
-
-if st.button("Run Experiment"):
-
-    payload = {
-        "experiment": "harmonic_analysis"
-    }
-
-    result = cluster.submit_job(payload)
-
-    st.success(f"Job submitted: {result}")
-
-
-# ---------------------------------------------------------
-# Harmonic Analysis
-# ---------------------------------------------------------
-
-st.subheader("Planetary Harmonic Prediction")
-
-if not df.empty:
-
-    harmonic_result = harmonic_engine.analyze(df)
-
-    st.write(harmonic_result)
-
-
-# ---------------------------------------------------------
-# Spacetime Compression Solver
-# ---------------------------------------------------------
-
-st.subheader("Spacetime Compression Field")
-
-if not df.empty:
-
-    compression_result = compression_solver.solve(df)
-
-    st.write(compression_result)
-
-
-# ---------------------------------------------------------
-# Harmonic Tensor Discovery
-# ---------------------------------------------------------
-
-st.subheader("Harmonic Tensor Discovery")
-
-if not df.empty:
-
-    tensor_result = tensor_engine.discover(df)
-
-    st.write(tensor_result)
-
-
-# ---------------------------------------------------------
-# Autonomous Discovery AI
-# ---------------------------------------------------------
-
-st.subheader("Autonomous Discovery AI")
-
-if not df.empty:
-
-    discoveries = discovery_ai.generate_hypotheses(df)
-
-    st.write(discoveries)
-
-
-# ---------------------------------------------------------
-# Reproducibility Engine
-# ---------------------------------------------------------
-
-st.subheader("Reproducibility Verification")
-
-experiment_data = {"sample": "test"}
-
-hash_id = repro_engine.hash_experiment(experiment_data)
-
-st.write("Experiment Hash:", hash_id)
-
-
-# ---------------------------------------------------------
-# Federation Mesh
-# ---------------------------------------------------------
-
-st.subheader("Scientific Mesh Federation")
-
-if st.button("Register Local Node"):
-
-    node_id = federation.register_node(
-        "local_node",
-        "http://localhost:8000"
+    fig.update_layout(
+        title="Global Seismic Activity",
+        geo=dict(
+            showland=True
+        )
     )
 
-    st.success(f"Node Registered: {node_id}")
+    st.plotly_chart(fig, use_container_width=True)
 
-nodes = federation.list_nodes()
 
-st.write("Federation Nodes:", nodes)
+# -----------------------------
+# Research Engines
+# -----------------------------
+
+if not df.empty:
+
+    st.subheader("Scientific Analysis Engines")
+
+    # Harmonic Prediction
+    harmonic_results = harmonic_engine.analyze(df)
+
+    # Spacetime Compression
+    compression_results = compression_solver.compute(df)
+
+    # Harmonic Tensor Discovery
+    tensor_results = tensor_engine.discover(df)
+
+    # Autonomous Discovery
+    discovery_results = discovery_ai.analyze(df)
+
+
+    st.write("Harmonic Prediction Results")
+    st.json(harmonic_results)
+
+    st.write("Spacetime Compression Results")
+    st.json(compression_results)
+
+    st.write("Harmonic Tensor Structures")
+    st.json(tensor_results)
+
+    st.write("Autonomous Discovery AI")
+    st.json(discovery_results)
+
+
+# -----------------------------
+# Reproducibility Record
+# -----------------------------
+
+payload = {
+    "rows": len(df)
+}
+
+record = repro_engine.create_reproducibility_record(payload)
+
+st.subheader("Reproducibility Record")
+
+st.json(record)
+
+
+# -----------------------------
+# Cluster Job Submission
+# -----------------------------
+
+if st.button("Submit Research Job to Cluster"):
+
+    job = {
+        "task": "planetary_analysis",
+        "data_rows": len(df)
+    }
+
+    job_id = cluster.submit_job(job)
+
+    st.success(f"Job submitted to research cluster: {job_id}")
+
+
+# -----------------------------
+# Footer
+# -----------------------------
+
+st.markdown("---")
+
+st.caption("IHRAS — Integrated Harmonic Research and Analysis System")
