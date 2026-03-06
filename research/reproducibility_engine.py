@@ -1,31 +1,34 @@
-# core/reproducibility_engine.py
-
 import hashlib
 import json
 from datetime import datetime
 
-
 class ReproducibilityEngine:
-    """
-    Generates reproducible experiment hashes and metadata
-    so scientific results can always be verified.
-    """
 
     def __init__(self):
         pass
 
-    def create_reproducibility_record(self, payload):
+    def hash_dataset(self, df):
+
+        if df is None or df.empty:
+            return "empty_dataset"
+
+        dataset_string = df.to_json()
+        return hashlib.sha256(dataset_string.encode()).hexdigest()
+
+    def hash_results(self, results):
+
+        results_string = json.dumps(results, sort_keys=True)
+        return hashlib.sha256(results_string.encode()).hexdigest()
+
+    def create_reproducibility_record(self, df, results):
+
+        dataset_hash = self.hash_dataset(df)
+        results_hash = self.hash_results(results)
 
         record = {
-            "timestamp": str(datetime.utcnow()),
-            "payload": payload
+            "timestamp": datetime.utcnow().isoformat(),
+            "dataset_hash": dataset_hash,
+            "results_hash": results_hash
         }
 
-        serialized = json.dumps(record, sort_keys=True)
-
-        record_hash = hashlib.sha256(serialized.encode()).hexdigest()
-
-        return {
-            "record": record,
-            "hash": record_hash
-        }
+        return record
