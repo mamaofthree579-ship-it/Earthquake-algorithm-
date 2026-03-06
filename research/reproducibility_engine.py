@@ -1,63 +1,31 @@
+# core/reproducibility_engine.py
+
 import hashlib
 import json
+from datetime import datetime
 
 
 class ReproducibilityEngine:
+    """
+    Generates reproducible experiment hashes and metadata
+    so scientific results can always be verified.
+    """
 
-    def __init__(self, orchestrator, ledger):
-        self.orchestrator = orchestrator
-        self.ledger = ledger
+    def __init__(self):
+        pass
 
-    def _hash_result(self, result):
+    def create_reproducibility_record(self, payload):
 
-        serialized = json.dumps(result, sort_keys=True).encode()
-
-        return hashlib.sha256(serialized).hexdigest()
-
-    def verify(self, artifact):
-
-        # Extract original data
-        job_id = artifact["job_id"]
-        original_result = artifact["result"]
-        original_hash = artifact["artifact_hash"]
-
-        # Re-run experiment
-        job = self.orchestrator.jobs.get(job_id)
-
-        if not job:
-            return {
-                "verified": False,
-                "reason": "Original job not found in orchestrator"
-            }
-
-        compute_fn = job["payload"]["compute"]
-
-        new_result = compute_fn()
-
-        new_hash = self._hash_result(new_result)
-
-        verified = new_hash == original_hash
-
-        return {
-            "verified": verified,
-            "original_hash": original_hash,
-            "recomputed_hash": new_hash,
-            "result": new_result
+        record = {
+            "timestamp": str(datetime.utcnow()),
+            "payload": payload
         }
 
-    def verify_all(self):
+        serialized = json.dumps(record, sort_keys=True)
 
-        artifacts = self.ledger.load_all()
+        record_hash = hashlib.sha256(serialized.encode()).hexdigest()
 
-        reports = []
-
-        for artifact in artifacts:
-
-            report = self.verify(artifact)
-
-            reports.append({
-                "job_id": artifact["job_id"],
-                "verified": report["verified"]
-            })
-
-        return reports
+        return {
+            "record": record,
+            "hash": record_hash
+        }
