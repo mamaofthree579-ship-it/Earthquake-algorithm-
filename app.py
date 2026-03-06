@@ -1,174 +1,284 @@
-# app.py
-
 import streamlit as st
-import pandas as pd
 import plotly.graph_objects as go
+import numpy as np
 
-# Core infrastructure
-from core.cluster_orchestrator import ClusterOrchestrator
-from core.reproducibility_engine import ReproducibilityEngine
+# ----------------------------------------------------
+# Ingestion Layer
+# ----------------------------------------------------
 
-# Ingestion
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
-# Research engines
-from research.harmonic_prediction_engine import HarmonicPredictionEngine
+# Core Compute Orchestration
+from core.cluster_orchestrator import ClusterOrchestrator
+
+# Simulation Research Engines
+from research.autonomous_discovery import AutonomousDiscoveryEngine
+from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
-from research.harmonic_tensor_discovery import HarmonicTensorDiscovery
-from research.discovery_fabric import AutonomousDiscoveryAI
+from research.harmonic_tensor_engine import HarmonicTensorDiscoveryEngine
+from research.autonomous_scientific_ai import AutonomousScientificDiscoveryAI
+from research.self_referential_learning_loop import SelfReferentialDiscoveryLoop
+from research.knowledge_singularity_stabilizer import KnowledgeCoherenceSingularityStabilizer
+from research.civilization_evolution_simulator import CivilizationKnowledgeEvolutionSimulator
+from research.civilization_limit_theorem_engine import CivilizationLimitTheoremEngine
+from research.civilization_singularity_field import CivilizationSingularityFieldCore
+from research.omega_closure_field_engine import OmegaClosureFieldEngine
+from research.universal_knowledge_mesh_core import UniversalKnowledgeMeshCore
 
 
-# -----------------------------
-# Initialize Engines
-# -----------------------------
-
-cluster = ClusterOrchestrator()
-repro_engine = ReproducibilityEngine()
-
-harmonic_engine = HarmonicPredictionEngine()
-compression_solver = SpacetimeCompressionSolver()
-tensor_engine = HarmonicTensorDiscovery()
-discovery_ai = AutonomousDiscoveryAI()
-
-
-# -----------------------------
-# UI
-# -----------------------------
+# ----------------------------------------------------
+# Page Configuration
+# ----------------------------------------------------
 
 st.set_page_config(
     page_title="IHRAS Scientific Research Platform",
     layout="wide"
 )
 
-st.title("🌍 IHRAS Planetary Harmonic Research System")
+st.title("🌍 IHRAS Integrated Harmonic Research Awareness System")
 
 
-# -----------------------------
-# Fetch Earthquake Data
-# -----------------------------
+# ----------------------------------------------------
+# Engine Initialization Helper
+# ----------------------------------------------------
+
+def init_engine(key, cls):
+    if key not in st.session_state:
+        st.session_state[key] = cls()
+    return st.session_state[key]
+
+
+# Initialize All Systems
+cluster = init_engine("cluster", ClusterOrchestrator)
+discovery = init_engine("discovery", AutonomousDiscoveryEngine)
+harmonic_engine = init_engine("harmonic_engine", PlanetaryHarmonicPredictionEngine)
+solver = init_engine("solver", SpacetimeCompressionSolver)
+tensor_engine = init_engine("tensor_engine", HarmonicTensorDiscoveryEngine)
+ai_core = init_engine("ai_core", AutonomousScientificDiscoveryAI)
+learning_loop = init_engine("learning_loop", SelfReferentialDiscoveryLoop)
+stabilizer = init_engine("stabilizer", KnowledgeCoherenceSingularityStabilizer)
+civilization_simulator = init_engine("civilization_simulator", CivilizationKnowledgeEvolutionSimulator)
+civilization_limit_engine = init_engine("civilization_limit_engine", CivilizationLimitTheoremEngine)
+singularity_core = init_engine("singularity_core", CivilizationSingularityFieldCore)
+omega_engine = init_engine("omega_engine", OmegaClosureFieldEngine)
+mesh_core = init_engine("mesh_core", UniversalKnowledgeMeshCore)
+
+
+# =====================================================
+# GLOBAL SEISMIC VISUALIZATION
+# =====================================================
+
+st.header("🌎 Global Seismic Activity")
 
 try:
+    df = fetch_usgs_earthquakes()
 
-    data = fetch_usgs_earthquakes()
-
-    if data is None or len(data) == 0:
-        st.warning("USGS data currently unavailable.")
-        df = pd.DataFrame()
-
-    else:
-        df = pd.DataFrame(data)
+    if df is not None and not df.empty:
 
         df = df.dropna(subset=["longitude", "latitude", "magnitude"])
 
-except Exception as e:
+        df["magnitude"] = df["magnitude"].apply(
+            lambda x: max(float(x), 0.1)
+        )
 
-    st.warning("USGS data currently unavailable.")
-    df = pd.DataFrame()
+        marker_size = (df["magnitude"] * 3).clip(lower=0.5)
 
+        fig = go.Figure()
 
-# -----------------------------
-# Visualization
-# -----------------------------
-
-if not df.empty:
-
-    # Ensure marker size always positive
-    marker_sizes = (df["magnitude"].abs() + 0.1) * 4
-
-    fig = go.Figure()
-
-    fig.add_trace(
-        go.Scattergeo(
-            lon=df["longitude"],
-            lat=df["latitude"],
-            text=df["magnitude"],
-            mode="markers",
-            marker=dict(
-                size=marker_sizes,
-                opacity=0.7
+        fig.add_trace(
+            go.Scattergeo(
+                lon=df["longitude"],
+                lat=df["latitude"],
+                text=df["place"],
+                mode="markers",
+                marker=dict(
+                    size=marker_size.tolist(),
+                    opacity=0.7
+                )
             )
         )
-    )
 
-    fig.update_layout(
-        title="Global Seismic Activity",
-        geo=dict(
-            showland=True
+        fig.update_layout(
+            geo=dict(projection_type="natural earth"),
+            height=600
         )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    else:
+        st.info("Seismic feed unavailable.")
+
+except Exception:
+    st.warning("Ingestion subsystem offline.")
+
+
+# =====================================================
+# Harmonic Forecast Simulation
+# =====================================================
+
+st.header("🌌 Harmonic Hazard Forecast")
+
+t = st.slider("Simulation Time Index", 0, 365, 180)
+
+if st.button("Run Harmonic Simulation"):
+    score = harmonic_engine.predict_risk(t)
+
+    st.metric(
+        label="Hazard Resonance Index",
+        value=f"{score:.6f}"
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+
+# =====================================================
+# Spacetime Compression Solver
+# =====================================================
+
+st.header("🌀 Spacetime Compression Field Solver")
+
+steps = st.slider("Solver Simulation Steps", 10, 100, 50)
+
+if st.button("Run Compression Simulation"):
+
+    history = solver.simulate(steps)
+
+    final_energy = float(np.mean(history[-1]))
+
+    st.metric(
+        label="Compression Field Energy",
+        value=f"{final_energy:.6f}"
+    )
 
 
-# -----------------------------
-# Research Engines
-# -----------------------------
+# =====================================================
+# Autonomous Discovery Cycle
+# =====================================================
 
-if not df.empty:
+st.header("🤖 Autonomous Discovery Intelligence Cycle")
 
-    st.subheader("Scientific Analysis Engines")
+if st.button("Run Discovery Cycle"):
 
-    # Harmonic Prediction
-    harmonic_results = harmonic_engine.analyze(df)
+    discovery_output = ai_core.discovery_cycle()
+    learning_result = learning_loop.learning_cycle(discovery_output)
 
-    # Spacetime Compression
-    compression_results = compression_solver.compute(df)
+    st.metric(
+        label="Self-Learning Stability Index",
+        value=f"{learning_result['self_learning_score']:.6f}"
+    )
 
-    # Harmonic Tensor Discovery
-    tensor_results = tensor_engine.discover(df)
-
-    # Autonomous Discovery
-    discovery_results = discovery_ai.analyze(df)
+    st.json(learning_result["metrics"])
 
 
-    st.write("Harmonic Prediction Results")
-    st.json(harmonic_results)
+# =====================================================
+# Civilization Simulation Module
+# =====================================================
 
-    st.write("Spacetime Compression Results")
-    st.json(compression_results)
+st.header("🌍 Civilization Knowledge Evolution Simulator")
 
-    st.write("Harmonic Tensor Structures")
-    st.json(tensor_results)
+steps = st.slider("Civilization Evolution Steps", 10, 100, 30)
 
-    st.write("Autonomous Discovery AI")
-    st.json(discovery_results)
+if st.button("Run Civilization Simulation"):
 
+    initial_state = np.random.randn(20)
 
-# -----------------------------
-# Reproducibility Record
-# -----------------------------
+    trajectory = civilization_simulator.simulate(
+        initial_state,
+        steps=steps
+    )
 
-payload = {
-    "rows": len(df)
-}
-
-record = repro_engine.create_reproducibility_record(payload)
-
-st.subheader("Reproducibility Record")
-
-st.json(record)
+    st.line_chart(np.array(trajectory))
 
 
-# -----------------------------
-# Cluster Job Submission
-# -----------------------------
+# =====================================================
+# Singularity Field Analyzer
+# =====================================================
 
-if st.button("Submit Research Job to Cluster"):
+st.header("🌌 Civilization Singularity Field Core")
 
-    job = {
-        "task": "planetary_analysis",
-        "data_rows": len(df)
-    }
+if st.button("Run Singularity Field Evaluation"):
 
-    job_id = cluster.submit_job(job)
+    state_vector = np.random.randn(40)
 
-    st.success(f"Job submitted to research cluster: {job_id}")
+    result = singularity_core.evaluate_field(state_vector)
+
+    st.metric(
+        label="Singularity Field Potential",
+        value=f"{result['civilization_singularity_potential']:.6f}"
+    )
+
+    st.json(result["field_metrics"])
 
 
-# -----------------------------
-# Footer
-# -----------------------------
+# =====================================================
+# Omega Closure Stability Engine
+# =====================================================
+
+st.header("🌠 Omega Knowledge Closure Field Engine")
+
+if st.button("Run Omega Closure Stability Evaluation"):
+
+    state_vector = np.random.randn(50)
+
+    result = omega_engine.evaluate(state_vector)
+
+    st.metric(
+        label="Omega Closure Stability Index",
+        value=f"{result['omega_closure_stability']:.6f}"
+    )
+
+    st.json(result["field_metrics"])
+
+
+# =====================================================
+# Universal Knowledge Mesh Core
+# =====================================================
+
+st.header("🌐 Universal Knowledge Mesh Civilization Core")
+
+if st.button("Run Mesh Civilization Simulation"):
+
+    field_state = np.random.randn(60)
+
+    result = mesh_core.evaluate_mesh(field_state)
+
+    st.metric(
+        label="Mesh Coherence Index",
+        value=f"{result['universal_mesh_coherence_score']:.6f}"
+    )
+
+    st.json(result["mesh_metrics"])
+
+
+# =====================================================
+# Artifact Ledger Viewer
+# =====================================================
+
+st.header("📚 Research Artifact Ledger")
+
+try:
+    artifacts = cluster.ledger.list_artifacts()
+
+    if artifacts:
+        for a in artifacts:
+            st.code(a)
+    else:
+        st.info("No artifact records found.")
+
+except Exception:
+    st.info("Ledger subsystem unavailable.")
+
+
+# =====================================================
+# Platform Status Panel
+# =====================================================
+
+st.header("📊 Platform Status")
+
+col1, col2, col3 = st.columns(3)
+
+col1.metric("Cluster Nodes", "1")
+col2.metric("Research Cycles", "Active")
+col3.metric("Artifact Records", "Dynamic")
+
 
 st.markdown("---")
-
-st.caption("IHRAS — Integrated Harmonic Research and Analysis System")
+st.caption("IHRAS Autonomous Scientific Research Platform Prototype")
