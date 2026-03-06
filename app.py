@@ -2,13 +2,14 @@ import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
 
-# Ingestion Layer
+# Ingestion
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
 # Core Runtime
 from core.cluster_orchestrator import ClusterOrchestrator
 from core.institutional_runtime_os import InstitutionalScientificRuntimeOS
 from core.lineage_intelligence_core import LineageIntelligenceCore
+from core.workflow_orchestrator import AutonomousWorkflowOrchestrator
 
 # Research Engines
 from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
@@ -30,14 +31,20 @@ st.title("🌍 IHRAS Scientific Simulation Dashboard")
 
 
 # ----------------------------------------------------
-# Engine Initialization
+# Engine Initialization Helper
 # ----------------------------------------------------
 
-def init_engine(key, cls):
+def init_engine(key, factory):
+
     if key not in st.session_state:
-        st.session_state[key] = cls()
+        st.session_state[key] = factory()
+
     return st.session_state[key]
 
+
+# ----------------------------------------------------
+# Initialize Core Systems
+# ----------------------------------------------------
 
 cluster = init_engine("cluster", ClusterOrchestrator)
 runtime_os = init_engine("runtime_os", InstitutionalScientificRuntimeOS)
@@ -61,6 +68,11 @@ tensor_engine = init_engine(
 discovery_ai = init_engine(
     "discovery_ai",
     AutonomousDiscoveryAI
+)
+
+workflow_orchestrator = init_engine(
+    "workflow_orchestrator",
+    lambda: AutonomousWorkflowOrchestrator(cluster, lineage_core)
 )
 
 
@@ -175,44 +187,36 @@ if df is not None and st.button("Run Discovery Analysis"):
 
 
 # ----------------------------------------------------
-# Institutional Runtime OS Task
+# Workflow Orchestration Panel
 # ----------------------------------------------------
 
-st.header("🏛 Institutional Scientific Runtime OS")
+st.header("⚙️ Autonomous Scientific Workflow Kernel")
 
-if st.button("Run Institutional Research Task"):
+if st.button("Run Full Harmonic Workflow"):
 
-    def scientific_task():
-        return {"status": "runtime_task_completed"}
-
-    job_id = runtime_os.submit_scientific_job(
-        scientific_task
+    task_id, job_id = workflow_orchestrator.schedule_task(
+        "HarmonicPredictionEngine",
+        harmonic_engine.predict_risk,
+        df=df,
+        parameters={"t": 180}
     )
 
-    st.success(f"Scientific Job Submitted: {job_id}")
+    result = {
+        "hazard_index": harmonic_engine.predict_risk(180)
+    }
 
-
-# ----------------------------------------------------
-# Lineage Intelligence Core
-# ----------------------------------------------------
-
-st.header("🧬 Experiment Lineage Intelligence")
-
-if st.button("Record Lineage Experiment"):
-
-    parameters = {"simulation": "dashboard_test"}
-
-    dummy_result = {"status": "completed"}
-
-    lineage_id = lineage_core.register_experiment(
-        df,
-        parameters,
-        dummy_result
+    lineage_id = workflow_orchestrator.complete_task(
+        task_id,
+        df=df,
+        parameters={"t": 180},
+        result=result
     )
 
-    st.success(f"Lineage Record Created: {lineage_id}")
+    st.success(
+        f"Workflow Completed | Job {job_id} | Lineage {lineage_id}"
+    )
 
-    st.json(lineage_core.list_lineage())
+    st.json(workflow_orchestrator.list_workflows())
 
 
 # ----------------------------------------------------
@@ -234,7 +238,7 @@ if st.button("Submit Cluster Research Task"):
 
 
 # ----------------------------------------------------
-# Artifact Ledger
+# Artifact Ledger Viewer
 # ----------------------------------------------------
 
 st.header("📚 Research Artifact Ledger")
@@ -245,6 +249,7 @@ try:
     if artifacts:
         for artifact in artifacts:
             st.code(artifact)
+
     else:
         st.info("No research artifacts recorded.")
 
@@ -257,8 +262,6 @@ except Exception:
 # ----------------------------------------------------
 
 st.markdown("---")
-
-st.subheader("Platform Status")
 
 col1, col2, col3 = st.columns(3)
 
