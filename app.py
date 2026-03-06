@@ -7,6 +7,7 @@ from ingestion.usgs_stream import fetch_usgs_earthquakes
 
 # Core Runtime
 from core.cluster_orchestrator import ClusterOrchestrator
+from core.institutional_runtime_os import InstitutionalScientificRuntimeOS
 
 # Research Engines
 from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
@@ -14,12 +15,9 @@ from research.spacetime_compression_solver import SpacetimeCompressionSolver
 from research.harmonic_tensor_discovery import HarmonicTensorDiscovery
 from research.discovery_fabric import AutonomousDiscoveryAI
 
-# Unified Physics Kernel
-from research.unified_physics_kernel import UnifiedPhysicsKernel
-
 
 # ----------------------------------------------------
-# Streamlit Configuration
+# Page Configuration
 # ----------------------------------------------------
 
 st.set_page_config(
@@ -27,11 +25,11 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🌍 IHRAS Research Simulation Dashboard")
+st.title("🌍 IHRAS Scientific Simulation Dashboard")
 
 
 # ----------------------------------------------------
-# Engine Initialization
+# Runtime Initialization
 # ----------------------------------------------------
 
 def init_engine(key, cls):
@@ -41,6 +39,7 @@ def init_engine(key, cls):
 
 
 cluster = init_engine("cluster", ClusterOrchestrator)
+runtime_os = init_engine("runtime_os", InstitutionalScientificRuntimeOS)
 
 harmonic_engine = init_engine(
     "harmonic_engine",
@@ -62,19 +61,14 @@ discovery_ai = init_engine(
     AutonomousDiscoveryAI
 )
 
-# Unified Physics Kernel
-kernel = UnifiedPhysicsKernel(
-    harmonic_engine,
-    solver,
-    tensor_engine
-)
-
 
 # ----------------------------------------------------
 # Data Ingestion
 # ----------------------------------------------------
 
 st.header("🌎 Global Seismic Activity")
+
+df = None
 
 try:
     df = fetch_usgs_earthquakes()
@@ -95,6 +89,7 @@ except Exception:
 if df is not None:
 
     df = df.dropna(subset=["longitude", "latitude", "magnitude"])
+
     df["magnitude"] = df["magnitude"].abs().clip(lower=0.1)
 
     marker_size = df["magnitude"] * 3
@@ -122,50 +117,93 @@ if df is not None:
 
 
 # ----------------------------------------------------
-# Unified Physics Kernel Simulation
+# Harmonic Simulation
 # ----------------------------------------------------
 
-st.header("🧠 Unified Physics Simulation Kernel")
+st.header("🌌 Harmonic Prediction Simulation")
 
-if df is not None and st.button("Run Unified Simulation"):
+t = st.slider("Simulation Index", 0, 365, 180)
 
-    result = kernel.run_simulation(df)
+if st.button("Run Harmonic Simulation"):
 
-    st.metric(
-        label="Unified Stability Index",
-        value=f"{result['unified_stability_index']:.6f}"
+    score = harmonic_engine.analyze(
+        df if df is not None else st.session_state.get("last_df", None)
     )
 
-    st.json(result["components"])
+    st.json(score)
 
 
 # ----------------------------------------------------
-# Discovery AI Panel
+# Compression Solver
+# ----------------------------------------------------
+
+st.header("🌀 Compression Field Solver")
+
+if df is not None and st.button("Run Compression Simulation"):
+
+    result = solver.compute(df)
+
+    st.json(result)
+
+
+# ----------------------------------------------------
+# Tensor Discovery
+# ----------------------------------------------------
+
+st.header("🔬 Harmonic Tensor Discovery")
+
+if df is not None and st.button("Run Tensor Discovery"):
+
+    result = tensor_engine.discover(df)
+
+    st.json(result)
+
+
+# ----------------------------------------------------
+# Discovery AI
 # ----------------------------------------------------
 
 st.header("🤖 Autonomous Discovery AI")
 
 if df is not None and st.button("Run Discovery Analysis"):
 
-    discoveries = discovery_ai.analyze(df)
+    result = discovery_ai.analyze(df)
 
-    st.json(discoveries)
+    st.json(result)
 
 
 # ----------------------------------------------------
-# Cluster Execution Panel
+# Institutional Runtime OS Panel
+# ----------------------------------------------------
+
+st.header("🏛 Institutional Scientific Runtime OS")
+
+if st.button("Run Institutional Research Task"):
+
+    def scientific_task():
+        return {"status": "runtime_task_completed"}
+
+    job_id = runtime_os.submit_scientific_job(
+        scientific_task
+    )
+
+    st.success(f"Scientific Job Submitted: {job_id}")
+
+
+# ----------------------------------------------------
+# Cluster Runtime Panel
 # ----------------------------------------------------
 
 st.header("📡 Research Cluster Runtime")
 
-if st.button("Submit Research Task"):
+if st.button("Submit Cluster Research Task"):
 
-    job_payload = {
+    payload = {
         "task": "simulation_analysis",
         "dataset_rows": 0 if df is None else len(df)
     }
 
-    job_id = cluster.submit_job(job_payload)
+    job_id = cluster.submit_job(payload)
 
     st.success(f"Cluster job submitted: {job_id}")
 
