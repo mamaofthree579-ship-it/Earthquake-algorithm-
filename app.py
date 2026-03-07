@@ -5,11 +5,12 @@ import numpy as np
 # Ingestion
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
-# Core Runtime
+# Core Runtime Layers
 from core.cluster_orchestrator import ClusterOrchestrator
 from core.institutional_runtime_os import InstitutionalScientificRuntimeOS
 from core.lineage_intelligence_core import LineageIntelligenceCore
 from core.workflow_orchestrator import AutonomousWorkflowOrchestrator
+from core.scientific_governance_layer import ScientificKnowledgeGovernanceLayer
 
 # Research Engines
 from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
@@ -19,7 +20,7 @@ from research.discovery_fabric import AutonomousDiscoveryAI
 
 
 # ----------------------------------------------------
-# Streamlit Config
+# Streamlit Configuration
 # ----------------------------------------------------
 
 st.set_page_config(
@@ -43,12 +44,13 @@ def init_engine(key, factory):
 
 
 # ----------------------------------------------------
-# Initialize Core Systems
+# Initialize Runtime Systems
 # ----------------------------------------------------
 
 cluster = init_engine("cluster", ClusterOrchestrator)
 runtime_os = init_engine("runtime_os", InstitutionalScientificRuntimeOS)
 lineage_core = init_engine("lineage_core", LineageIntelligenceCore)
+governance_layer = init_engine("governance_layer", ScientificKnowledgeGovernanceLayer)
 
 harmonic_engine = init_engine(
     "harmonic_engine",
@@ -187,7 +189,7 @@ if df is not None and st.button("Run Discovery Analysis"):
 
 
 # ----------------------------------------------------
-# Workflow Orchestration Panel
+# Workflow Orchestrator Kernel
 # ----------------------------------------------------
 
 st.header("⚙️ Autonomous Scientific Workflow Kernel")
@@ -217,6 +219,27 @@ if st.button("Run Full Harmonic Workflow"):
     )
 
     st.json(workflow_orchestrator.list_workflows())
+
+
+# ----------------------------------------------------
+# Governance Monitoring Panel
+# ----------------------------------------------------
+
+st.header("🧠 Scientific Knowledge Governance Monitor")
+
+if df is not None and st.button("Evaluate Governance Integrity"):
+
+    governance_result = governance_layer.evaluate_governance(
+        df,
+        {"simulation": "dashboard_run"}
+    )
+
+    st.metric(
+        label="Governance Integrity Index",
+        value=f"{governance_result['governance_index']:.6f}"
+    )
+
+    st.json(governance_result)
 
 
 # ----------------------------------------------------
