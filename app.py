@@ -1,6 +1,7 @@
 import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
+import pandas as pd
 
 # ===============================
 # Data Ingestion
@@ -47,14 +48,12 @@ st.set_page_config(
 st.title("🌍 IHRAS Autonomous Research Platform")
 
 # ===============================
-# Session Initialization Helper
+# Session Helper
 # ===============================
 
 def init_engine(key, factory):
-
     if key not in st.session_state:
         st.session_state[key] = factory()
-
     return st.session_state[key]
 
 # ===============================
@@ -62,15 +61,9 @@ def init_engine(key, factory):
 # ===============================
 
 cluster = init_engine("cluster", ClusterOrchestrator)
-
 runtime_os = init_engine("runtime_os", InstitutionalScientificRuntimeOS)
-
 lineage_core = init_engine("lineage_core", LineageIntelligenceCore)
-
-governance_layer = init_engine(
-    "governance_layer",
-    ScientificKnowledgeGovernanceLayer
-)
+governance_layer = init_engine("governance_layer", ScientificKnowledgeGovernanceLayer)
 
 harmonic_engine = init_engine(
     "harmonic_engine",
@@ -94,10 +87,7 @@ discovery_ai = init_engine(
 
 workflow_orchestrator = init_engine(
     "workflow_orchestrator",
-    lambda: AutonomousWorkflowOrchestrator(
-        cluster,
-        lineage_core
-    )
+    lambda: AutonomousWorkflowOrchestrator(cluster, lineage_core)
 )
 
 civilization_kernel = init_engine(
@@ -116,9 +106,7 @@ memory_graph = init_engine(
 
 adaptive_ai = init_engine(
     "adaptive_ai",
-    lambda: AdaptiveExperimentIntelligence(
-        memory_graph
-    )
+    lambda: AdaptiveExperimentIntelligence(memory_graph)
 )
 
 experiment_search = init_engine(
@@ -144,11 +132,6 @@ meta_kernel = init_engine(
         memory_graph,
         agent_count=4
     )
-)
-
-graph_visualizer = init_engine(
-    "graph_visualizer",
-    lambda: KnowledgeGraphVisualizer(memory_graph)
 )
 
 hypothesis_engine = init_engine(
@@ -180,13 +163,16 @@ except Exception:
     df = None
 
 # ===============================
-# Visualization Layer
+# Map Visualization + Largest Magnitude
 # ===============================
 
 if df is not None:
 
     df = df.dropna(subset=["longitude", "latitude", "magnitude"])
+
     df["magnitude"] = df["magnitude"].abs().clip(lower=0.1)
+
+    # ---- Global Map ----
 
     fig = go.Figure()
 
@@ -209,20 +195,55 @@ if df is not None:
 
     st.plotly_chart(fig, use_container_width=True)
 
-# ===============================
-# Seismic Max Magnitude Display
-# ===============================
-if df is not None and not df.empty:
+    # ---- Largest Magnitude Display ----
+
     max_mag = df["magnitude"].max()
     max_row = df.loc[df["magnitude"] == max_mag].iloc[0]
+
     st.metric(
         label="Largest Earthquake Recorded",
         value=f"M {max_mag:.2f}",
-        delta=f"{max_row['place']}" if "place" in df.columns else ""
+        delta=max_row["place"] if "place" in df.columns else ""
     )
-    
+
 # ===============================
-# Harmonic Simulation Panel
+# Temporal Seismic Evolution Tracker
+# ===============================
+
+st.header("📈 Temporal Seismic Evolution Tracker")
+
+time_window = st.slider(
+    "Days to visualize",
+    min_value=7,
+    max_value=365,
+    value=30
+)
+
+if df is not None and "time" in df.columns:
+
+    df["time"] = pd.to_datetime(df["time"])
+
+    cutoff = pd.Timestamp.now() - pd.Timedelta(days=time_window)
+
+    df_window = df[df["time"] >= cutoff]
+
+    if not df_window.empty:
+
+        daily_max = df_window.groupby(
+            df_window["time"].dt.date
+        )["magnitude"].max()
+
+        st.line_chart(daily_max, height=400)
+
+        st.caption(
+            f"Maximum earthquake magnitude over the past {time_window} days."
+        )
+
+    else:
+        st.info("No recent earthquake data in selected window.")
+
+# ===============================
+# Harmonic Prediction Panel
 # ===============================
 
 st.header("🌌 Harmonic Prediction Simulation")
@@ -232,114 +253,6 @@ t = st.slider("Simulation Index", 0, 365, 180)
 if st.button("Run Harmonic Simulation"):
     score = harmonic_engine.predict_risk(t)
     st.metric("Hazard Resonance Index", f"{score:.6f}")
-
-# ===============================
-# Civilization Kernel Panel
-# ===============================
-
-st.header("🌌 Autonomous Civilization Kernel")
-
-if df is not None and st.button("Run Research Cycle"):
-
-    cycle = civilization_kernel.run_cycle(
-        harmonic_engine,
-        df
-    )
-
-    try:
-        memory_graph.add_experiment(
-            cycle.get("parameters", {}),
-            cycle.get("result", {}),
-            cycle.get("governance_index", 0.0)
-        )
-    except Exception:
-        pass
-
-    st.json(cycle)
-
-if st.button("Show Civilization Status"):
-    status = civilization_kernel.civilization_status()
-    st.metric("Total Research Cycles", status.get("total_cycles", 0))
-    st.json(status.get("top_cycles", []))
-
-# ===============================
-# Parallel Experiment Engine
-# ===============================
-
-st.header("⚡ Parallel Experiment Engine")
-
-parallel_runs = st.slider(
-    "Parallel Experiments",
-    1,
-    20,
-    5
-)
-
-if df is not None and st.button("Run Parallel Experiments"):
-
-    results = parallel_engine.run_parallel_batch(
-        harmonic_engine,
-        df,
-        parallel_runs
-    )
-
-    st.success(f"{len(results)} experiments completed")
-    st.json(results)
-
-# ===============================
-# Adaptive Predictor Panel
-# ===============================
-
-st.header("🧠 Experimental Learning Predictor")
-
-if st.button("Generate Learning Parameter Prediction"):
-    st.json(adaptive_ai.generate_parameters())
-
-if st.button("View Memory-Guided Region Estimate"):
-    if len(memory_graph.nodes) == 0:
-        st.info("No historical experiments available.")
-    else:
-        st.json(adaptive_ai.estimate_best_parameter())
-
-# ===============================
-# Meta-OS Discovery Swarm Panel
-# ===============================
-
-st.header("🌌 Autonomous Discovery Meta-OS Kernel")
-
-meta_iterations = st.slider(
-    "Discovery Cycle Iterations",
-    1,
-    20,
-    5
-)
-
-if st.button("Run Autonomous Discovery Swarm"):
-
-    result = meta_kernel.run_discovery_cycle(
-        iterations=meta_iterations
-    )
-
-    st.success("Meta-OS Discovery Cycle Completed")
-    st.json(result)
-
-if st.button("View Meta-OS Kernel Status"):
-    st.json(meta_kernel.status())
-
-# ===============================
-# Knowledge Graph Visualization
-# ===============================
-
-st.header("🌐 Scientific Knowledge Graph Map")
-
-if st.button("Render Knowledge Graph Visualization"):
-
-    fig = graph_visualizer.build_graph_figure()
-
-    if fig is None:
-        st.info("No knowledge graph data available.")
-    else:
-        st.plotly_chart(fig, use_container_width=True)
 
 # ===============================
 # Hypothesis Engine Panel
@@ -359,9 +272,6 @@ if st.button("Run Hypothesis Discovery Cycle"):
     results = hypothesis_engine.discovery_cycle(
         n_candidates=int(hypotheses_count)
     )
-
-    if results is None:
-        results = []
 
     st.success("Hypothesis Discovery Cycle Completed")
     st.json(results)
