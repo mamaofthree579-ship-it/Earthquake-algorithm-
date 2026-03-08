@@ -1,15 +1,15 @@
 import streamlit as st
 import plotly.graph_objects as go
 
-# --------------------------------------------------
+# -------------------------------
 # Data Ingestion
-# --------------------------------------------------
+# -------------------------------
 
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
-# --------------------------------------------------
+# -------------------------------
 # Core Systems
-# --------------------------------------------------
+# -------------------------------
 
 from core.cluster_orchestrator import ClusterOrchestrator
 from core.institutional_runtime_os import InstitutionalScientificRuntimeOS
@@ -20,20 +20,20 @@ from core.civilization_kernel import AutonomousScientificCivilizationKernel
 from core.experiment_search_engine import AutomatedExperimentSearchEngine
 from core.scientific_memory_graph import ScientificMemoryGraph
 from core.adaptive_experiment_intelligence import AdaptiveExperimentIntelligence
+from core.parallel_experiment_engine import ParallelExperimentEngine
 
-# --------------------------------------------------
+# -------------------------------
 # Research Engines
-# --------------------------------------------------
+# -------------------------------
 
 from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
 from research.harmonic_tensor_discovery import HarmonicTensorDiscovery
 from research.discovery_fabric import AutonomousDiscoveryAI
 
-
-# --------------------------------------------------
+# -------------------------------
 # Streamlit Setup
-# --------------------------------------------------
+# -------------------------------
 
 st.set_page_config(
     page_title="IHRAS Scientific Research Platform",
@@ -42,20 +42,20 @@ st.set_page_config(
 
 st.title("🌍 IHRAS Scientific Simulation Dashboard")
 
-
-# --------------------------------------------------
+# -------------------------------
 # Session Initialization Helper
-# --------------------------------------------------
+# -------------------------------
 
 def init_engine(key, factory):
+
     if key not in st.session_state:
         st.session_state[key] = factory()
+
     return st.session_state[key]
 
-
-# --------------------------------------------------
+# -------------------------------
 # Initialize Core Systems
-# --------------------------------------------------
+# -------------------------------
 
 cluster = init_engine("cluster", ClusterOrchestrator)
 
@@ -131,17 +131,23 @@ experiment_search = init_engine(
     )
 )
 
+parallel_engine = init_engine(
+    "parallel_engine",
+    lambda: ParallelExperimentEngine(
+        experiment_search,
+        memory_graph
+    )
+)
 
-# --------------------------------------------------
+# -------------------------------
 # Data Ingestion
-# --------------------------------------------------
+# -------------------------------
 
 st.header("🌎 Global Seismic Activity")
 
 df = None
 
 try:
-
     df = fetch_usgs_earthquakes()
 
     if df is None or df.empty:
@@ -149,14 +155,12 @@ try:
         df = None
 
 except Exception:
-
     st.warning("Data ingestion subsystem offline.")
     df = None
 
-
-# --------------------------------------------------
-# Visualization
-# --------------------------------------------------
+# -------------------------------
+# Visualization Layer
+# -------------------------------
 
 if df is not None:
 
@@ -184,10 +188,9 @@ if df is not None:
 
     st.plotly_chart(fig, use_container_width=True)
 
-
-# --------------------------------------------------
-# Harmonic Prediction
-# --------------------------------------------------
+# -------------------------------
+# Harmonic Simulation
+# -------------------------------
 
 st.header("🌌 Harmonic Prediction Simulation")
 
@@ -202,10 +205,9 @@ if st.button("Run Harmonic Simulation"):
         f"{score:.6f}"
     )
 
-
-# --------------------------------------------------
+# -------------------------------
 # Compression Solver
-# --------------------------------------------------
+# -------------------------------
 
 st.header("🌀 Compression Field Solver")
 
@@ -215,10 +217,9 @@ if df is not None and st.button("Run Compression Simulation"):
 
     st.json(result)
 
-
-# --------------------------------------------------
+# -------------------------------
 # Tensor Discovery
-# --------------------------------------------------
+# -------------------------------
 
 st.header("🔬 Harmonic Tensor Discovery")
 
@@ -228,10 +229,9 @@ if df is not None and st.button("Run Tensor Discovery"):
 
     st.json(result)
 
-
-# --------------------------------------------------
+# -------------------------------
 # Discovery AI
-# --------------------------------------------------
+# -------------------------------
 
 st.header("🤖 Autonomous Discovery AI")
 
@@ -241,10 +241,9 @@ if df is not None and st.button("Run Discovery Analysis"):
 
     st.json(result)
 
-
-# --------------------------------------------------
-# Workflow Orchestrator
-# --------------------------------------------------
+# -------------------------------
+# Workflow Kernel
+# -------------------------------
 
 st.header("⚙️ Autonomous Workflow Kernel")
 
@@ -274,33 +273,11 @@ if df is not None and st.button("Run Harmonic Workflow"):
 
     st.json(workflow_orchestrator.list_workflows())
 
-
-# --------------------------------------------------
-# Governance Monitor
-# --------------------------------------------------
-
-st.header("🧠 Scientific Governance Monitor")
-
-if df is not None and st.button("Evaluate Governance"):
-
-    governance = governance_layer.evaluate_governance(
-        df,
-        {"simulation": "dashboard_run"}
-    )
-
-    st.metric(
-        "Governance Integrity Index",
-        f"{governance['governance_index']:.6f}"
-    )
-
-    st.json(governance)
-
-
-# --------------------------------------------------
+# -------------------------------
 # Civilization Kernel
-# --------------------------------------------------
+# -------------------------------
 
-st.header("🌌 Autonomous Scientific Civilization Kernel")
+st.header("🌌 Autonomous Civilization Kernel")
 
 if df is not None and st.button("Run Research Cycle"):
 
@@ -315,94 +292,66 @@ if df is not None and st.button("Run Research Cycle"):
         cycle["governance_index"]
     )
 
-    st.success("Research cycle completed")
-
     st.json(cycle)
 
 if st.button("Show Civilization Status"):
 
     status = civilization_kernel.civilization_status()
 
-    st.metric(
-        "Total Research Cycles",
-        status["total_cycles"]
-    )
+    st.metric("Total Research Cycles", status["total_cycles"])
 
     st.json(status["top_cycles"])
 
+# -------------------------------
+# Parallel Experiments
+# -------------------------------
 
-# --------------------------------------------------
-# Automated Experiment Search
-# --------------------------------------------------
+st.header("⚡ Parallel Experiment Engine")
 
-st.header("🔬 Automated Experiment Search")
+parallel_runs = st.slider(
+    "Parallel Experiments",
+    1,
+    20,
+    5
+)
 
-batch_size = st.slider("Experiments to run", 1, 20, 5)
+if df is not None and st.button("Run Parallel Experiments"):
 
-if df is not None and st.button("Run Experiment Batch"):
-
-    results = experiment_search.run_batch(
+    results = parallel_engine.run_parallel_batch(
         harmonic_engine,
         df,
-        batch_size
+        parallel_runs
     )
-
-    for r in results:
-        memory_graph.add_experiment(
-            r["parameters"],
-            r["result"],
-            r["governance_index"]
-        )
 
     st.success(f"{len(results)} experiments completed")
 
     st.json(results)
 
-if st.button("Show Best Experiments"):
-
-    best = experiment_search.best_experiments()
-
-    st.json(best)
-
-
-# --------------------------------------------------
-# Adaptive Experiment Intelligence
-# --------------------------------------------------
-
-st.header("🧠 Adaptive Experiment Intelligence")
-
-if st.button("Predict Promising Parameters"):
-
-    params = adaptive_ai.generate_parameters()
-
-    st.json(params)
-
-
-# --------------------------------------------------
-# Scientific Memory Graph
-# --------------------------------------------------
+# -------------------------------
+# Memory Graph
+# -------------------------------
 
 st.header("🧠 Scientific Memory Graph")
 
-if st.button("Show Memory Graph Summary"):
+if st.button("Memory Graph Summary"):
 
     summary = memory_graph.summary()
 
-    st.metric("Experiments Stored", summary["total_experiments"])
-    st.metric("Connections", summary["connections"])
+    st.metric(
+        "Experiments Stored",
+        summary["total_experiments"]
+    )
 
-if st.button("Show Best Experiments (Memory)"):
+    st.metric(
+        "Connections",
+        summary["connections"]
+    )
 
-    best = memory_graph.best_experiments()
-
-    st.json(best)
-
-
-# --------------------------------------------------
+# -------------------------------
 # Cluster Runtime
-# --------------------------------------------------
+# -------------------------------
 
-st.header("📡 Research Cluster Runtime")
+st.header("📡 Cluster Runtime")
 
 if st.button("Submit Cluster Task"):
 
@@ -415,31 +364,9 @@ if st.button("Submit Cluster Task"):
 
     st.success(f"Cluster job submitted: {job_id}")
 
-
-# --------------------------------------------------
-# Artifact Ledger
-# --------------------------------------------------
-
-st.header("📚 Research Artifact Ledger")
-
-try:
-
-    artifacts = cluster.ledger.list_artifacts()
-
-    if artifacts:
-        for artifact in artifacts:
-            st.code(artifact)
-    else:
-        st.info("No artifacts recorded.")
-
-except Exception:
-
-    st.info("Artifact ledger unavailable.")
-
-
-# --------------------------------------------------
-# Platform Status
-# --------------------------------------------------
+# -------------------------------
+# Platform Footer
+# -------------------------------
 
 st.markdown("---")
 
