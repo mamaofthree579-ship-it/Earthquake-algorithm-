@@ -115,15 +115,18 @@ if df is not None and not df.empty:
         delta=max_row["place"] if "place" in df.columns else ""
     )
 
+# ===============================
+# Temporal Seismic Evolution Tracker
+# ===============================
 st.header("📈 Temporal Seismic Evolution Tracker")
 
 # Always show slider
 time_window = st.slider(
-    "Select time window (days)",
-    min_value=7,
-    max_value=365,
-    value=30,
-    key="temporal_window_slider"
+    "Select historical observation window (days)",
+    7,
+    365,
+    30,
+    key="tracker_slider"
 )
 
 if df is not None and not df.empty:
@@ -143,22 +146,22 @@ if df is not None and not df.empty:
     # Drop rows with invalid datetime or magnitude
     df_clean = df.dropna(subset=["event_time", "magnitude"])
 
-    cutoff = pd.Timestamp.now() - pd.Timedelta(days=time_window)
-    df_window = df_clean[df_clean["event_time"] >= cutoff]
+    if not df_clean.empty:
+        cutoff = pd.Timestamp.now() - pd.Timedelta(days=time_window)
+        df_window = df_clean[df_clean["event_time"] >= cutoff]
 
-    if not df_window.empty:
-
-        daily_max = df_window.groupby(df_window["event_time"].dt.date)["magnitude"].max()
-
-        st.subheader("Seismic Energy Trend")
-        st.line_chart(daily_max, height=400, use_container_width=True)
-        st.caption(f"Showing maximum earthquake magnitude over the past {time_window} days.")
+        if df_window.empty:
+            st.info("No earthquake events recorded in this observation window.")
+            st.caption(f"Dataset contains {len(df_clean)} total seismic events.")
+        else:
+            daily_max = df_window.groupby(df_window["event_time"].dt.date)["magnitude"].max()
+            st.subheader("Seismic Energy Trend (Observed Data Only)")
+            st.line_chart(daily_max, height=400, use_container_width=True)
 
     else:
-        st.info("No seismic events found in the selected time window.")
-
+        st.info("Dataset does not contain usable seismic records.")
 else:
-    st.info("Seismic dataset currently unavailable.")
+    st.info("Seismic ingestion feed currently unavailable.")
 
 # ===============================
 # Harmonic Prediction Panel
