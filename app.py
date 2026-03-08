@@ -23,6 +23,7 @@ from core.scientific_memory_graph import ScientificMemoryGraph
 from core.adaptive_experiment_intelligence import AdaptiveExperimentIntelligence
 from core.parallel_experiment_engine import ParallelExperimentEngine
 from core.meta_os_kernel import MetaOSKernel
+from core.knowledge_graph_visualizer import KnowledgeGraphVisualizer
 
 # -------------------------------
 # Research Engines
@@ -77,7 +78,10 @@ memory_graph = init_engine("memory_graph", ScientificMemoryGraph)
 adaptive_ai = init_engine("adaptive_ai", lambda: AdaptiveExperimentIntelligence(memory_graph))
 experiment_search = init_engine("experiment_search", lambda: AutomatedExperimentSearchEngine(civilization_kernel, adaptive_ai))
 parallel_engine = init_engine("parallel_engine", lambda: ParallelExperimentEngine(experiment_search, memory_graph))
-meta_kernel = init_engine("meta_kernel", lambda: MetaOSKernel(harmonic_engine, memory_graph, agent_count=4))
+meta_kernel = init_engine("meta_kernel", lambda: MetaOSKernel(harmonic_engine, memory_graph, agent_count=graph_visualizer = init_engine(
+    "graph_visualizer",
+    lambda: KnowledgeGraphVisualizer(memory_graph)
+)
 
 # -------------------------------
 # Data Ingestion
@@ -235,6 +239,21 @@ if st.button("Memory Graph Summary"):
     st.metric("Experiments Stored", summary["total_experiments"])
     st.metric("Connections", summary["connections"])
 
+# --------------------------------------------------
+# Scientific Knowledge Graph Visualization
+# --------------------------------------------------
+
+st.header("🌐 Scientific Knowledge Graph Map")
+
+if st.button("Render Knowledge Graph Visualization"):
+
+    fig = graph_visualizer.build_graph_figure()
+
+    if fig is None:
+        st.info("No knowledge graph data available.")
+    else:
+        st.plotly_chart(fig, use_container_width=True)
+        
 # -------------------------------
 # Cluster Runtime
 # -------------------------------
