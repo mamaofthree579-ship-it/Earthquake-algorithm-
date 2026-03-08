@@ -115,10 +115,6 @@ if df is not None and not df.empty:
         delta=max_row["place"] if "place" in df.columns else ""
     )
 
-# =====================================================
-# Temporal Seismic Evolution Tracker (Corrected)
-# =====================================================
-
 st.header("📈 Temporal Seismic Evolution Tracker")
 
 # Always show slider
@@ -132,39 +128,34 @@ time_window = st.slider(
 
 if df is not None and not df.empty:
 
-    # Normalize time column if possible
+    # Combine date/time fields into a single datetime column
     if "time" in df.columns:
+        df["event_time"] = pd.to_datetime(df["time"], errors="coerce")
+    elif "datetime" in df.columns:
+        df["event_time"] = pd.to_datetime(df["datetime"], errors="coerce")
+    elif "date" in df.columns and "time" in df.columns:
+        df["event_time"] = pd.to_datetime(df["date"].astype(str) + " " + df["time"].astype(str), errors="coerce")
+    elif "date" in df.columns:
+        df["event_time"] = pd.to_datetime(df["date"], errors="coerce")
+    else:
+        df["event_time"] = None
 
-        df["time"] = pd.to_datetime(df["time"], errors="coerce")
-        df_clean = df.dropna(subset=["time", "magnitude"])
+    # Drop rows with invalid datetime or magnitude
+    df_clean = df.dropna(subset=["event_time", "magnitude"])
 
-        cutoff = pd.Timestamp.now() - pd.Timedelta(days=time_window)
+    cutoff = pd.Timestamp.now() - pd.Timedelta(days=time_window)
+    df_window = df_clean[df_clean["event_time"] >= cutoff]
 
-        df_window = df_clean[df_clean["time"] >= cutoff]
+    if not df_window.empty:
 
-        if not df_window.empty:
+        daily_max = df_window.groupby(df_window["event_time"].dt.date)["magnitude"].max()
 
-            daily_max = df_window.groupby(
-                df_window["time"].dt.date
-            )["magnitude"].max()
-
-            st.subheader("Seismic Energy Trend")
-
-            st.line_chart(
-                daily_max,
-                height=400,
-                use_container_width=True
-            )
-
-            st.caption(
-                f"Showing maximum earthquake magnitude over the past {time_window} days."
-            )
-
-        else:
-            st.info("No seismic events found in the selected time window.")
+        st.subheader("Seismic Energy Trend")
+        st.line_chart(daily_max, height=400, use_container_width=True)
+        st.caption(f"Showing maximum earthquake magnitude over the past {time_window} days.")
 
     else:
-        st.warning("Dataset does not contain a usable time field.")
+        st.info("No seismic events found in the selected time window.")
 
 else:
     st.info("Seismic dataset currently unavailable.")
