@@ -19,6 +19,7 @@ from core.scientific_governance_layer import ScientificKnowledgeGovernanceLayer
 from core.civilization_kernel import AutonomousScientificCivilizationKernel
 from core.experiment_search_engine import AutomatedExperimentSearchEngine
 from core.scientific_memory_graph import ScientificMemoryGraph
+from core.adaptive_experiment_intelligence import AdaptiveExperimentIntelligence
 
 # --------------------------------------------------
 # Research Engines
@@ -53,7 +54,7 @@ def init_engine(key, factory):
 
 
 # --------------------------------------------------
-# Initialize Systems
+# Initialize Core Systems
 # --------------------------------------------------
 
 cluster = init_engine("cluster", ClusterOrchestrator)
@@ -110,16 +111,24 @@ civilization_kernel = init_engine(
     )
 )
 
-experiment_search = init_engine(
-    "experiment_search",
-    lambda: AutomatedExperimentSearchEngine(
-        civilization_kernel
-    )
-)
-
 memory_graph = init_engine(
     "memory_graph",
     ScientificMemoryGraph
+)
+
+adaptive_ai = init_engine(
+    "adaptive_ai",
+    lambda: AdaptiveExperimentIntelligence(
+        memory_graph
+    )
+)
+
+experiment_search = init_engine(
+    "experiment_search",
+    lambda: AutomatedExperimentSearchEngine(
+        civilization_kernel,
+        adaptive_ai
+    )
 )
 
 
@@ -140,6 +149,7 @@ try:
         df = None
 
 except Exception:
+
     st.warning("Data ingestion subsystem offline.")
     df = None
 
@@ -327,12 +337,7 @@ if st.button("Show Civilization Status"):
 
 st.header("🔬 Automated Experiment Search")
 
-batch_size = st.slider(
-    "Experiments to run",
-    1,
-    20,
-    5
-)
+batch_size = st.slider("Experiments to run", 1, 20, 5)
 
 if df is not None and st.button("Run Experiment Batch"):
 
@@ -361,6 +366,19 @@ if st.button("Show Best Experiments"):
 
 
 # --------------------------------------------------
+# Adaptive Experiment Intelligence
+# --------------------------------------------------
+
+st.header("🧠 Adaptive Experiment Intelligence")
+
+if st.button("Predict Promising Parameters"):
+
+    params = adaptive_ai.generate_parameters()
+
+    st.json(params)
+
+
+# --------------------------------------------------
 # Scientific Memory Graph
 # --------------------------------------------------
 
@@ -370,15 +388,8 @@ if st.button("Show Memory Graph Summary"):
 
     summary = memory_graph.summary()
 
-    st.metric(
-        "Experiments Stored",
-        summary["total_experiments"]
-    )
-
-    st.metric(
-        "Connections",
-        summary["connections"]
-    )
+    st.metric("Experiments Stored", summary["total_experiments"])
+    st.metric("Connections", summary["connections"])
 
 if st.button("Show Best Experiments (Memory)"):
 
@@ -416,12 +427,9 @@ try:
     artifacts = cluster.ledger.list_artifacts()
 
     if artifacts:
-
         for artifact in artifacts:
             st.code(artifact)
-
     else:
-
         st.info("No artifacts recorded.")
 
 except Exception:
