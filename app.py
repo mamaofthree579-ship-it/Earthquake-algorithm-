@@ -6,30 +6,22 @@ import pandas as pd
 # ===============================
 # Data Ingestion
 # ===============================
-
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
 # ===============================
 # Core Systems
 # ===============================
-
 from core.cluster_orchestrator import ClusterOrchestrator
 from core.institutional_runtime_os import InstitutionalScientificRuntimeOS
 from core.lineage_intelligence_core import LineageIntelligenceCore
-from core.workflow_orchestrator import AutonomousWorkflowOrchestrator
 from core.scientific_governance_layer import ScientificKnowledgeGovernanceLayer
-from core.civilization_kernel import AutonomousScientificCivilizationKernel
-from core.experiment_search_engine import AutomatedExperimentSearchEngine
+from core.meta_os_kernel import MetaOSKernel
 from core.scientific_memory_graph import ScientificMemoryGraph
 from core.adaptive_experiment_intelligence import AdaptiveExperimentIntelligence
-from core.parallel_experiment_engine import ParallelExperimentEngine
-from core.meta_os_kernel import MetaOSKernel
-from core.knowledge_graph_visualizer import KnowledgeGraphVisualizer
 
 # ===============================
 # Research Engines
 # ===============================
-
 from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
 from research.harmonic_tensor_discovery import HarmonicTensorDiscovery
@@ -39,7 +31,6 @@ from research.self_evolving_hypothesis import SelfEvolvingHypothesisEngine
 # ===============================
 # Streamlit Setup
 # ===============================
-
 st.set_page_config(
     page_title="IHRAS Autonomous Research Platform",
     layout="wide"
@@ -48,116 +39,45 @@ st.set_page_config(
 st.title("🌍 IHRAS Autonomous Research Platform")
 
 # ===============================
-# Session Helper
+# Engine Initialization Helper
 # ===============================
-
 def init_engine(key, factory):
     if key not in st.session_state:
         st.session_state[key] = factory()
     return st.session_state[key]
 
 # ===============================
-# Initialize Runtime Systems
+# Initialize Core & Research Engines
 # ===============================
-
 cluster = init_engine("cluster", ClusterOrchestrator)
 runtime_os = init_engine("runtime_os", InstitutionalScientificRuntimeOS)
 lineage_core = init_engine("lineage_core", LineageIntelligenceCore)
 governance_layer = init_engine("governance_layer", ScientificKnowledgeGovernanceLayer)
 
-harmonic_engine = init_engine(
-    "harmonic_engine",
-    PlanetaryHarmonicPredictionEngine
-)
+harmonic_engine = init_engine("harmonic_engine", PlanetaryHarmonicPredictionEngine)
+solver = init_engine("solver", SpacetimeCompressionSolver)
+tensor_engine = init_engine("tensor_engine", HarmonicTensorDiscovery)
+discovery_ai = init_engine("discovery_ai", AutonomousDiscoveryAI)
 
-solver = init_engine(
-    "solver",
-    SpacetimeCompressionSolver
-)
-
-tensor_engine = init_engine(
-    "tensor_engine",
-    HarmonicTensorDiscovery
-)
-
-discovery_ai = init_engine(
-    "discovery_ai",
-    AutonomousDiscoveryAI
-)
-
-workflow_orchestrator = init_engine(
-    "workflow_orchestrator",
-    lambda: AutonomousWorkflowOrchestrator(cluster, lineage_core)
-)
-
-civilization_kernel = init_engine(
-    "civilization_kernel",
-    lambda: AutonomousScientificCivilizationKernel(
-        workflow_orchestrator,
-        governance_layer,
-        lineage_core
-    )
-)
-
-memory_graph = init_engine(
-    "memory_graph",
-    ScientificMemoryGraph
-)
-
-adaptive_ai = init_engine(
-    "adaptive_ai",
-    lambda: AdaptiveExperimentIntelligence(memory_graph)
-)
-
-experiment_search = init_engine(
-    "experiment_search",
-    lambda: AutomatedExperimentSearchEngine(
-        civilization_kernel,
-        adaptive_ai
-    )
-)
-
-parallel_engine = init_engine(
-    "parallel_engine",
-    lambda: ParallelExperimentEngine(
-        experiment_search,
-        memory_graph
-    )
-)
-
-meta_kernel = init_engine(
-    "meta_kernel",
-    lambda: MetaOSKernel(
-        harmonic_engine,
-        memory_graph,
-        agent_count=4
-    )
-)
+memory_graph = init_engine("memory_graph", ScientificMemoryGraph)
+adaptive_ai = init_engine("adaptive_ai", lambda: AdaptiveExperimentIntelligence(memory_graph))
 
 hypothesis_engine = init_engine(
     "hypothesis_engine",
-    lambda: SelfEvolvingHypothesisEngine(
-        memory_graph,
-        meta_kernel,
-        adaptive_ai
-    )
+    lambda: SelfEvolvingHypothesisEngine(memory_graph, None, adaptive_ai)
 )
 
 # ===============================
-# Data Ingestion Layer
+# Seismic Data Ingestion
 # ===============================
-
 st.header("🌎 Global Seismic Activity")
 
 df = None
-
 try:
     df = fetch_usgs_earthquakes()
-
     if df is None or df.empty:
         st.warning("USGS data unavailable.")
         df = None
-
 except Exception:
     st.warning("Data ingestion subsystem offline.")
     df = None
@@ -165,56 +85,44 @@ except Exception:
 # ===============================
 # Map Visualization + Largest Magnitude
 # ===============================
-
-if df is not None:
+if df is not None and not df.empty:
 
     df = df.dropna(subset=["longitude", "latitude", "magnitude"])
-
     df["magnitude"] = df["magnitude"].abs().clip(lower=0.1)
 
     # ---- Global Map ----
-
     fig = go.Figure()
-
     fig.add_trace(
         go.Scattergeo(
             lon=df["longitude"],
             lat=df["latitude"],
             mode="markers",
-            marker=dict(
-                size=df["magnitude"] * 3,
-                opacity=0.7
-            )
+            marker=dict(size=df["magnitude"] * 3, opacity=0.7)
         )
     )
-
     fig.update_layout(
         geo=dict(projection_type="natural earth"),
         height=600
     )
-
     st.plotly_chart(fig, use_container_width=True)
 
-    # ---- Largest Magnitude Display ----
-
+    # ---- Largest Magnitude ----
     max_mag = df["magnitude"].max()
     max_row = df.loc[df["magnitude"] == max_mag].iloc[0]
-
     st.metric(
         label="Largest Earthquake Recorded",
         value=f"M {max_mag:.2f}",
         delta=max_row["place"] if "place" in df.columns else ""
     )
 
-# =====================================================
-# Temporal Seismic Evolution Tracker (FIXED + CONNECTED)
-# =====================================================
-
+# ===============================
+# Temporal Seismic Evolution Tracker
+# ===============================
 st.header("📈 Temporal Seismic Evolution Tracker")
 
 if df is not None and not df.empty and "time" in df.columns:
+    df["time"] = pd.to_datetime(df["time"])
 
-    # --- Slider Controls the Visualization ---
     time_window = st.slider(
         "Days to visualize seismic evolution",
         min_value=7,
@@ -223,42 +131,22 @@ if df is not None and not df.empty and "time" in df.columns:
         key="temporal_window_slider"
     )
 
-    df["time"] = pd.to_datetime(df["time"])
-
     cutoff = pd.Timestamp.now() - pd.Timedelta(days=time_window)
-
     df_window = df[df["time"] >= cutoff]
 
-    if len(df_window) > 0:
-
-        # Compute daily maximum magnitude trend
-        trend_series = df_window.groupby(
-            df_window["time"].dt.date
-        )["magnitude"].max()
-
+    if not df_window.empty:
+        daily_max = df_window.groupby(df_window["time"].dt.date)["magnitude"].max()
         st.subheader("Seismic Energy Trend")
-
-        st.line_chart(
-            trend_series,
-            height=400,
-            use_container_width=True
-        )
-
-        # Summary metrics
-        st.caption(
-            f"Showing maximum earthquake magnitude trend over the past {time_window} days."
-        )
-
+        st.line_chart(daily_max, height=400, use_container_width=True)
+        st.caption(f"Maximum earthquake magnitude over the past {time_window} days.")
     else:
         st.info("No seismic data found in selected time window.")
-
 else:
     st.info("Temporal tracker unavailable (dataset missing time field).")
 
 # ===============================
 # Harmonic Prediction Panel
 # ===============================
-
 st.header("🌌 Harmonic Prediction Simulation")
 
 t = st.slider("Simulation Index", 0, 365, 180)
@@ -268,54 +156,33 @@ if st.button("Run Harmonic Simulation"):
     st.metric("Hazard Resonance Index", f"{score:.6f}")
 
 # ===============================
-# Hypothesis Engine Panel
+# Self-Evolving Hypothesis Engine Panel
 # ===============================
-
 st.header("🧪 Self-Evolving Hypothesis Generation")
 
-hypotheses_count = st.slider(
-    "Number of Hypotheses",
-    1,
-    10,
-    5
-)
+hypotheses_count = st.slider("Number of Hypotheses", 1, 10, 5)
 
 if st.button("Run Hypothesis Discovery Cycle"):
-
-    results = hypothesis_engine.discovery_cycle(
-        n_candidates=int(hypotheses_count)
-    )
-
+    results = hypothesis_engine.discovery_cycle(n_candidates=int(hypotheses_count))
     st.success("Hypothesis Discovery Cycle Completed")
     st.json(results)
 
 # ===============================
 # Cluster Runtime Panel
 # ===============================
-
 st.header("📡 Research Cluster Runtime")
 
 if st.button("Submit Cluster Task"):
-
-    payload = {
-        "task": "simulation_analysis",
-        "dataset_rows": 0 if df is None else len(df)
-    }
-
+    payload = {"task": "simulation_analysis", "dataset_rows": 0 if df is None else len(df)}
     job_id = cluster.submit_job(payload)
-
     st.success(f"Cluster job submitted: {job_id}")
 
 # ===============================
-# Footer
+# Footer Metrics
 # ===============================
-
 st.markdown("---")
-
 col1, col2, col3 = st.columns(3)
-
 col1.metric("Cluster Nodes", "1")
 col2.metric("Research Cycles", "Active")
 col3.metric("Artifacts", "Dynamic")
-
 st.caption("IHRAS Autonomous Research Simulation Platform")
