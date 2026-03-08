@@ -210,6 +210,18 @@ if df is not None:
     st.plotly_chart(fig, use_container_width=True)
 
 # ===============================
+# Seismic Max Magnitude Display
+# ===============================
+if df is not None and not df.empty:
+    max_mag = df["magnitude"].max()
+    max_row = df.loc[df["magnitude"] == max_mag].iloc[0]
+    st.metric(
+        label="Largest Earthquake Recorded",
+        value=f"M {max_mag:.2f}",
+        delta=f"{max_row['place']}" if "place" in df.columns else ""
+    )
+    
+# ===============================
 # Harmonic Simulation Panel
 # ===============================
 
