@@ -1,37 +1,35 @@
-import json
 import os
-import uuid
-from datetime import datetime
-
+import pandas as pd
 
 class ArtifactLedger:
 
-    def __init__(self, path="artifacts"):
+    def __init__(self, storage_path="research_artifacts/ledger.csv"):
+        self.storage_path = storage_path
 
-        self.path = path
+        os.makedirs(os.path.dirname(storage_path), exist_ok=True)
 
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
+        if not os.path.exists(storage_path):
+            pd.DataFrame().to_csv(storage_path, index=False)
 
-    def record(self, data):
+    # -------------------------
 
-        artifact_id = str(uuid.uuid4())
+    def save_dataframe(self, df):
 
-        artifact = {
-            "artifact_id": artifact_id,
-            "timestamp": datetime.utcnow().isoformat(),
-            "data": data
-        }
+        if df is None or df.empty:
+            return
 
-        filename = os.path.join(self.path, f"{artifact_id}.json")
+        df.to_csv(
+            self.storage_path,
+            mode="a",
+            header=not os.path.exists(self.storage_path),
+            index=False
+        )
 
-        with open(filename, "w") as f:
-            json.dump(artifact, f, indent=2)
+    # -------------------------
 
-        return artifact_id
+    def load_dataframe(self):
 
-    def list_artifacts(self):
-
-        files = os.listdir(self.path)
-
-        return files
+        try:
+            return pd.read_csv(self.storage_path)
+        except Exception:
+            return pd.DataFrame()
