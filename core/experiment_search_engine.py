@@ -1,40 +1,27 @@
-import numpy as np
-
-
 class AutomatedExperimentSearchEngine:
 
-    def __init__(self, civilization_kernel):
+    def __init__(self, civilization_kernel, adaptive_ai=None):
 
         self.kernel = civilization_kernel
+        self.adaptive_ai = adaptive_ai
         self.search_history = []
-
-    # -------------------------------------------------
-    # Random Parameter Generator
-    # -------------------------------------------------
 
     def generate_parameters(self):
 
-        params = {
-            "t": int(np.random.randint(0, 365))
-        }
+        if self.adaptive_ai:
+            return self.adaptive_ai.generate_parameters()
 
-        return params
-
-    # -------------------------------------------------
-    # Run Single Experiment
-    # -------------------------------------------------
+        return {"t": np.random.randint(0, 365)}
 
     def run_experiment(self, engine, df):
+
+        params = self.generate_parameters()
 
         cycle = self.kernel.run_cycle(engine, df)
 
         self.search_history.append(cycle)
 
         return cycle
-
-    # -------------------------------------------------
-    # Run Multiple Experiments
-    # -------------------------------------------------
 
     def run_batch(self, engine, df, n=5):
 
@@ -47,10 +34,6 @@ class AutomatedExperimentSearchEngine:
             results.append(result)
 
         return results
-
-    # -------------------------------------------------
-    # Best Experiments
-    # -------------------------------------------------
 
     def best_experiments(self, top_k=5):
 
