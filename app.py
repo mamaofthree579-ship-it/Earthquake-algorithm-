@@ -206,20 +206,22 @@ if df is not None:
         delta=max_row["place"] if "place" in df.columns else ""
     )
 
-# ===============================
-# Temporal Seismic Evolution Tracker
-# ===============================
+# =====================================================
+# Temporal Seismic Evolution Tracker (FIXED + CONNECTED)
+# =====================================================
 
 st.header("📈 Temporal Seismic Evolution Tracker")
 
-time_window = st.slider(
-    "Days to visualize",
-    min_value=7,
-    max_value=365,
-    value=30
-)
+if df is not None and not df.empty and "time" in df.columns:
 
-if df is not None and "time" in df.columns:
+    # --- Slider Controls the Visualization ---
+    time_window = st.slider(
+        "Days to visualize seismic evolution",
+        min_value=7,
+        max_value=365,
+        value=30,
+        key="temporal_window_slider"
+    )
 
     df["time"] = pd.to_datetime(df["time"])
 
@@ -227,20 +229,31 @@ if df is not None and "time" in df.columns:
 
     df_window = df[df["time"] >= cutoff]
 
-    if not df_window.empty:
+    if len(df_window) > 0:
 
-        daily_max = df_window.groupby(
+        # Compute daily maximum magnitude trend
+        trend_series = df_window.groupby(
             df_window["time"].dt.date
         )["magnitude"].max()
 
-        st.line_chart(daily_max, height=400)
+        st.subheader("Seismic Energy Trend")
 
+        st.line_chart(
+            trend_series,
+            height=400,
+            use_container_width=True
+        )
+
+        # Summary metrics
         st.caption(
-            f"Maximum earthquake magnitude over the past {time_window} days."
+            f"Showing maximum earthquake magnitude trend over the past {time_window} days."
         )
 
     else:
-        st.info("No recent earthquake data in selected window.")
+        st.info("No seismic data found in selected time window.")
+
+else:
+    st.info("Temporal tracker unavailable (dataset missing time field).")
 
 # ===============================
 # Harmonic Prediction Panel
