@@ -2,18 +2,28 @@ import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
 
-# Ingestion
+# --------------------------------------------------
+# Data Ingestion
+# --------------------------------------------------
+
 from ingestion.usgs_stream import fetch_usgs_earthquakes
 
-# Core systems
+# --------------------------------------------------
+# Core Systems
+# --------------------------------------------------
+
 from core.cluster_orchestrator import ClusterOrchestrator
 from core.institutional_runtime_os import InstitutionalScientificRuntimeOS
 from core.lineage_intelligence_core import LineageIntelligenceCore
 from core.workflow_orchestrator import AutonomousWorkflowOrchestrator
 from core.scientific_governance_layer import ScientificKnowledgeGovernanceLayer
 from core.civilization_kernel import AutonomousScientificCivilizationKernel
+from core.experiment_search_engine import AutomatedExperimentSearchEngine
 
-# Research engines
+# --------------------------------------------------
+# Research Engines
+# --------------------------------------------------
+
 from research.harmonic_prediction_engine import PlanetaryHarmonicPredictionEngine
 from research.spacetime_compression_solver import SpacetimeCompressionSolver
 from research.harmonic_tensor_discovery import HarmonicTensorDiscovery
@@ -21,7 +31,7 @@ from research.discovery_fabric import AutonomousDiscoveryAI
 
 
 # --------------------------------------------------
-# Streamlit Configuration
+# Streamlit Setup
 # --------------------------------------------------
 
 st.set_page_config(
@@ -97,6 +107,13 @@ civilization_kernel = init_engine(
     )
 )
 
+experiment_search = init_engine(
+    "experiment_search",
+    lambda: AutomatedExperimentSearchEngine(
+        civilization_kernel
+    )
+)
+
 
 # --------------------------------------------------
 # Data Ingestion
@@ -107,6 +124,7 @@ st.header("🌎 Global Seismic Activity")
 df = None
 
 try:
+
     df = fetch_usgs_earthquakes()
 
     if df is None or df.empty:
@@ -240,7 +258,7 @@ if df is not None and st.button("Run Harmonic Workflow"):
 
 
 # --------------------------------------------------
-# Governance Layer
+# Governance Monitor
 # --------------------------------------------------
 
 st.header("🧠 Scientific Governance Monitor")
@@ -290,6 +308,38 @@ if st.button("Show Civilization Status"):
 
 
 # --------------------------------------------------
+# Automated Experiment Search
+# --------------------------------------------------
+
+st.header("🔬 Automated Experiment Search")
+
+batch_size = st.slider(
+    "Experiments to run",
+    1,
+    20,
+    5
+)
+
+if df is not None and st.button("Run Experiment Batch"):
+
+    results = experiment_search.run_batch(
+        harmonic_engine,
+        df,
+        batch_size
+    )
+
+    st.success(f"{len(results)} experiments completed")
+
+    st.json(results)
+
+if st.button("Show Best Experiments"):
+
+    best = experiment_search.best_experiments()
+
+    st.json(best)
+
+
+# --------------------------------------------------
 # Cluster Runtime
 # --------------------------------------------------
 
@@ -318,13 +368,16 @@ try:
     artifacts = cluster.ledger.list_artifacts()
 
     if artifacts:
+
         for artifact in artifacts:
             st.code(artifact)
 
     else:
+
         st.info("No artifacts recorded.")
 
 except Exception:
+
     st.info("Artifact ledger unavailable.")
 
 
