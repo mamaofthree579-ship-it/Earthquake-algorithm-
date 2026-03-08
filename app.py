@@ -115,34 +115,59 @@ if df is not None and not df.empty:
         delta=max_row["place"] if "place" in df.columns else ""
     )
 
-# ===============================
-# Temporal Seismic Evolution Tracker
-# ===============================
+# =====================================================
+# Temporal Seismic Evolution Tracker (Corrected)
+# =====================================================
+
 st.header("📈 Temporal Seismic Evolution Tracker")
 
-if df is not None and not df.empty and "time" in df.columns:
-    df["time"] = pd.to_datetime(df["time"])
+# Always show slider
+time_window = st.slider(
+    "Select time window (days)",
+    min_value=7,
+    max_value=365,
+    value=30,
+    key="temporal_window_slider"
+)
 
-    time_window = st.slider(
-        "Days to visualize seismic evolution",
-        min_value=7,
-        max_value=365,
-        value=30,
-        key="temporal_window_slider"
-    )
+if df is not None and not df.empty:
 
-    cutoff = pd.Timestamp.now() - pd.Timedelta(days=time_window)
-    df_window = df[df["time"] >= cutoff]
+    # Normalize time column if possible
+    if "time" in df.columns:
 
-    if not df_window.empty:
-        daily_max = df_window.groupby(df_window["time"].dt.date)["magnitude"].max()
-        st.subheader("Seismic Energy Trend")
-        st.line_chart(daily_max, height=400, use_container_width=True)
-        st.caption(f"Maximum earthquake magnitude over the past {time_window} days.")
+        df["time"] = pd.to_datetime(df["time"], errors="coerce")
+        df_clean = df.dropna(subset=["time", "magnitude"])
+
+        cutoff = pd.Timestamp.now() - pd.Timedelta(days=time_window)
+
+        df_window = df_clean[df_clean["time"] >= cutoff]
+
+        if not df_window.empty:
+
+            daily_max = df_window.groupby(
+                df_window["time"].dt.date
+            )["magnitude"].max()
+
+            st.subheader("Seismic Energy Trend")
+
+            st.line_chart(
+                daily_max,
+                height=400,
+                use_container_width=True
+            )
+
+            st.caption(
+                f"Showing maximum earthquake magnitude over the past {time_window} days."
+            )
+
+        else:
+            st.info("No seismic events found in the selected time window.")
+
     else:
-        st.info("No seismic data found in selected time window.")
+        st.warning("Dataset does not contain a usable time field.")
+
 else:
-    st.info("Temporal tracker unavailable (dataset missing time field).")
+    st.info("Seismic dataset currently unavailable.")
 
 # ===============================
 # Harmonic Prediction Panel
