@@ -173,9 +173,12 @@ if st.button("Render Knowledge Graph Visualization"):
 st.header("🧪 Self-Evolving Hypothesis Generation")
 hypotheses_count = st.slider("Number of Hypotheses to Generate", 1, 10, 5)
 if st.button("Run Hypothesis Discovery Cycle"):
-    results = hypothesis_engine.discovery_cycle(n_candidates=hypotheses_count)
-    st.success("Hypothesis Discovery Cycle Completed")
-    st.json(results)
+    results = hypothesis_engine.discovery_cycle(
+    n_candidates=int(hypotheses_count)
+)
+
+if results is None:
+    results = []
 
 # ===============================
 # Cluster Runtime Panel
