@@ -12,12 +12,7 @@ from ingestion.usgs_stream import fetch_usgs_earthquakes
 # Core Systems
 # ===============================
 from core.cluster_orchestrator import ClusterOrchestrator
-from core.institutional_runtime_os import InstitutionalScientificRuntimeOS
-from core.lineage_intelligence_core import LineageIntelligenceCore
-from core.scientific_governance_layer import ScientificKnowledgeGovernanceLayer
-from core.meta_os_kernel import MetaOSKernel
-from core.scientific_memory_graph import ScientificMemoryGraph
-from core.adaptive_experiment_intelligence import AdaptiveExperimentIntelligence
+from core.artifact_ledger import ArtifactLedger
 
 # ===============================
 # Research Engines
@@ -27,6 +22,8 @@ from research.spacetime_compression_solver import SpacetimeCompressionSolver
 from research.harmonic_tensor_discovery import HarmonicTensorDiscovery
 from research.discovery_fabric import AutonomousDiscoveryAI
 from research.self_evolving_hypothesis import SelfEvolvingHypothesisEngine
+from core.scientific_memory_graph import ScientificMemoryGraph
+from core.adaptive_experiment_intelligence import AdaptiveExperimentIntelligence
 
 # ===============================
 # Streamlit Setup
@@ -47,12 +44,10 @@ def init_engine(key, factory):
     return st.session_state[key]
 
 # ===============================
-# Initialize Core & Research Engines
+# Initialize Engines
 # ===============================
 cluster = init_engine("cluster", ClusterOrchestrator)
-runtime_os = init_engine("runtime_os", InstitutionalScientificRuntimeOS)
-lineage_core = init_engine("lineage_core", LineageIntelligenceCore)
-governance_layer = init_engine("governance_layer", ScientificKnowledgeGovernanceLayer)
+ledger = init_engine("ledger", ArtifactLedger)
 
 harmonic_engine = init_engine("harmonic_engine", PlanetaryHarmonicPredictionEngine)
 solver = init_engine("solver", SpacetimeCompressionSolver)
@@ -74,13 +69,17 @@ st.header("🌎 Global Seismic Activity")
 
 df = None
 try:
-    df = fetch_usgs_earthquakes()
-    if df is None or df.empty:
-        st.warning("USGS data unavailable.")
-        df = None
+    df_live = fetch_usgs_earthquakes()
+    if df_live is not None and not df_live.empty:
+        ledger.save_dataframe(df_live)  # Persist data
 except Exception:
-    st.warning("Data ingestion subsystem offline.")
-    df = None
+    st.warning("USGS ingestion subsystem offline.")
+
+# Load historical data from ledger
+df = ledger.load_dataframe()
+
+if df is None or df.empty:
+    st.warning("Seismic dataset unavailable.")
 
 # ===============================
 # Map Visualization + Largest Magnitude
@@ -120,7 +119,6 @@ if df is not None and not df.empty:
 # ===============================
 st.header("📈 Temporal Seismic Evolution Tracker")
 
-# Always show slider
 time_window = st.slider(
     "Select historical observation window (days)",
     7,
@@ -131,7 +129,7 @@ time_window = st.slider(
 
 if df is not None and not df.empty:
 
-    # Combine date/time fields into a single datetime column
+    # Normalize timestamp
     if "time" in df.columns:
         df["event_time"] = pd.to_datetime(df["time"], errors="coerce")
     elif "datetime" in df.columns:
@@ -143,7 +141,6 @@ if df is not None and not df.empty:
     else:
         df["event_time"] = None
 
-    # Drop rows with invalid datetime or magnitude
     df_clean = df.dropna(subset=["event_time", "magnitude"])
 
     if not df_clean.empty:
@@ -157,7 +154,6 @@ if df is not None and not df.empty:
             daily_max = df_window.groupby(df_window["event_time"].dt.date)["magnitude"].max()
             st.subheader("Seismic Energy Trend (Observed Data Only)")
             st.line_chart(daily_max, height=400, use_container_width=True)
-
     else:
         st.info("Dataset does not contain usable seismic records.")
 else:
