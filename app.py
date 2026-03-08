@@ -1,6 +1,5 @@
 import streamlit as st
 import plotly.graph_objects as go
-import numpy as np
 
 # --------------------------------------------------
 # Data Ingestion
@@ -19,6 +18,7 @@ from core.workflow_orchestrator import AutonomousWorkflowOrchestrator
 from core.scientific_governance_layer import ScientificKnowledgeGovernanceLayer
 from core.civilization_kernel import AutonomousScientificCivilizationKernel
 from core.experiment_search_engine import AutomatedExperimentSearchEngine
+from core.scientific_memory_graph import ScientificMemoryGraph
 
 # --------------------------------------------------
 # Research Engines
@@ -53,7 +53,7 @@ def init_engine(key, factory):
 
 
 # --------------------------------------------------
-# Initialize Core Systems
+# Initialize Systems
 # --------------------------------------------------
 
 cluster = init_engine("cluster", ClusterOrchestrator)
@@ -95,7 +95,10 @@ discovery_ai = init_engine(
 
 workflow_orchestrator = init_engine(
     "workflow_orchestrator",
-    lambda: AutonomousWorkflowOrchestrator(cluster, lineage_core)
+    lambda: AutonomousWorkflowOrchestrator(
+        cluster,
+        lineage_core
+    )
 )
 
 civilization_kernel = init_engine(
@@ -112,6 +115,11 @@ experiment_search = init_engine(
     lambda: AutomatedExperimentSearchEngine(
         civilization_kernel
     )
+)
+
+memory_graph = init_engine(
+    "memory_graph",
+    ScientificMemoryGraph
 )
 
 
@@ -291,6 +299,12 @@ if df is not None and st.button("Run Research Cycle"):
         df
     )
 
+    memory_graph.add_experiment(
+        cycle["parameters"],
+        cycle["result"],
+        cycle["governance_index"]
+    )
+
     st.success("Research cycle completed")
 
     st.json(cycle)
@@ -328,6 +342,13 @@ if df is not None and st.button("Run Experiment Batch"):
         batch_size
     )
 
+    for r in results:
+        memory_graph.add_experiment(
+            r["parameters"],
+            r["result"],
+            r["governance_index"]
+        )
+
     st.success(f"{len(results)} experiments completed")
 
     st.json(results)
@@ -335,6 +356,33 @@ if df is not None and st.button("Run Experiment Batch"):
 if st.button("Show Best Experiments"):
 
     best = experiment_search.best_experiments()
+
+    st.json(best)
+
+
+# --------------------------------------------------
+# Scientific Memory Graph
+# --------------------------------------------------
+
+st.header("🧠 Scientific Memory Graph")
+
+if st.button("Show Memory Graph Summary"):
+
+    summary = memory_graph.summary()
+
+    st.metric(
+        "Experiments Stored",
+        summary["total_experiments"]
+    )
+
+    st.metric(
+        "Connections",
+        summary["connections"]
+    )
+
+if st.button("Show Best Experiments (Memory)"):
+
+    best = memory_graph.best_experiments()
 
     st.json(best)
 
