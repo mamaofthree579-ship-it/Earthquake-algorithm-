@@ -120,48 +120,29 @@ if df is not None and not df.empty:
 # ===============================
 st.header("📈 Temporal Seismic Evolution Tracker")
 
-# Always show slider
-time_window = st.slider(
-    "Select historical observation window (days)",
-    7,
-    365,
-    30,
-    key="tracker_slider"
-)
+if df is not None and not df.empty and "time" in df.columns:
+    df["time"] = pd.to_datetime(df["time"])
 
-if df is not None and not df.empty:
+    time_window = st.slider(
+        "Days to visualize seismic evolution",
+        min_value=7,
+        max_value=365,
+        value=30,
+        key="temporal_window_slider"
+    )
 
-    # Combine date/time fields into a single datetime column
-    if "time" in df.columns:
-        df["event_time"] = pd.to_datetime(df["time"], errors="coerce")
-    elif "datetime" in df.columns:
-        df["event_time"] = pd.to_datetime(df["datetime"], errors="coerce")
-    elif "date" in df.columns and "time" in df.columns:
-        df["event_time"] = pd.to_datetime(df["date"].astype(str) + " " + df["time"].astype(str), errors="coerce")
-    elif "date" in df.columns:
-        df["event_time"] = pd.to_datetime(df["date"], errors="coerce")
+    cutoff = pd.Timestamp.now() - pd.Timedelta(days=time_window)
+    df_window = df[df["time"] >= cutoff]
+
+    if not df_window.empty:
+        daily_max = df_window.groupby(df_window["time"].dt.date)["magnitude"].max()
+        st.subheader("Seismic Energy Trend")
+        st.line_chart(daily_max, height=400, use_container_width=True)
+        st.caption(f"Maximum earthquake magnitude over the past {time_window} days.")
     else:
-        df["event_time"] = None
-
-    # Drop rows with invalid datetime or magnitude
-    df_clean = df.dropna(subset=["event_time", "magnitude"])
-
-    if not df_clean.empty:
-        cutoff = pd.Timestamp.now() - pd.Timedelta(days=time_window)
-        df_window = df_clean[df_clean["event_time"] >= cutoff]
-
-        if df_window.empty:
-            st.info("No earthquake events recorded in this observation window.")
-            st.caption(f"Dataset contains {len(df_clean)} total seismic events.")
-        else:
-            daily_max = df_window.groupby(df_window["event_time"].dt.date)["magnitude"].max()
-            st.subheader("Seismic Energy Trend (Observed Data Only)")
-            st.line_chart(daily_max, height=400, use_container_width=True)
-
-    else:
-        st.info("Dataset does not contain usable seismic records.")
+        st.info("No seismic data found in selected time window.")
 else:
-    st.info("Seismic ingestion feed currently unavailable.")
+    st.info("Temporal tracker unavailable (dataset missing time field).")
 
 # ===============================
 # Harmonic Prediction Panel
