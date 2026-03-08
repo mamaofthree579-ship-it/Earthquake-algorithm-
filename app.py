@@ -347,6 +347,30 @@ if st.button("Memory Graph Summary"):
         summary["connections"]
     )
 
+# --------------------------------------------------
+# Experimental Learning Parameter Predictor
+# --------------------------------------------------
+
+st.header("🧠 Experimental Learning Parameter Predictor")
+
+if st.button("Generate Learning Parameter Prediction"):
+
+    predicted_params = adaptive_ai.generate_parameters()
+
+    st.success("Adaptive parameter prediction generated")
+
+    st.json(predicted_params)
+
+if st.button("View Memory-Guided Best Region Estimate"):
+
+    experiments = memory_graph.nodes
+
+    if len(experiments) == 0:
+        st.info("No historical experiments available.")
+    else:
+        best_region = adaptive_ai.estimate_best_parameter()
+        st.json(best_region)
+        
 # -------------------------------
 # Cluster Runtime
 # -------------------------------
