@@ -109,7 +109,11 @@ if run_analysis:
         seismic_count, quake_loc, quake_mag = fetch_real_earthquake_data(stimulus_date_str)
         kp_index = fetch_real_geomagnetic_data(stimulus_date_str)
 
+    # --- FIX WAS HERE ---
+    # Now correctly passing the slider values into the calculation.
     psi_value = calculate_psi(seismic_count, kp_index, seismic_weight, kp_multiplier)
+
+    # Also dynamically creating the formula for the tooltip
     geomagnetic_weight = 1.0 - seismic_weight
     psi_formula_help = (f"PSI = ({seismic_weight:.2f} * Quakes) + ({geomagnetic_weight:.2f} * Kp-Index * {kp_multiplier})")
 
@@ -122,6 +126,7 @@ if run_analysis:
     st.write("---")
     st.subheader(f"Conclusion for Target Date: {target_date.strftime('%B %d, %Y')}")
 
+    # And using the custom psi_threshold for the comparison
     if psi_value > psi_threshold:
         st.warning(f"**RESULT: HIGH PROBABILITY PREDICTED.** The model suggests a high likelihood of activity on this date. The PSI of **{psi_value:.2f}** exceeded the custom threshold of **{psi_threshold}**.")
         if seismic_count > 0 and quake_loc:
