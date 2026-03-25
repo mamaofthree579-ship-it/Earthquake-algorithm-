@@ -4,29 +4,31 @@ import requests
 import io
 import numpy as np
 
-# 1. Haversine Distance Logic
+# 1. Haversine Distance (km)
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371
     dlat, dlon = np.radians(lat2 - lat1), np.radians(lon2 - lon1)
     a = np.sin(dlat/2)**2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon/2)**2
     return R * 2 * np.arcsin(np.sqrt(a))
 
-# 2. Robust UAP Data Load (CORGIS Mirror)
+# 2. Robust UAP Data Load (Standardizing Time)
 @st.cache_data
 def get_uap_data():
     url = "https://corgis-edu.github.io"
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=15)
         df = pd.read_csv(io.StringIO(response.text), on_bad_lines='skip', engine='python')
         df = df.rename(columns={'Location.Latitude': 'lat', 'Location.Longitude': 'lon', 'Location.City': 'city'})
-        df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
-        df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
-        return df.dropna(subset=['lat', 'lon'])
-    except: return pd.DataFrame()
+        
+        # Standardize Time to ISO 8601 UTC
+        df['time'] = pd.to_datetime(df['Data.Date.Time'], errors='coerce', utc=True)
+        return df.dropna(subset=['lat', 'lon', 'time'])
+    except Exception as e:
+        st.error(f"UAP Load Error: {e}")
+        return pd.DataFrame()
 
-# 3. Live Seismic Feed (Filtering for Significance)
-def get_significant_seismic():
-    # Fetching M4.5+ (we filter for 5.5+ in the logic)
+# 3. Live Seismic Feed (Significant Triggers Only)
+def get_seismic_data():
     url = "https://earthquake.usgs.gov"
     try:
         resp = requests.get(url, timeout=10).json()
@@ -35,25 +37,31 @@ def get_significant_seismic():
             coords = f['geometry']['coordinates']
             points.append({
                 'lat': coords[1], 'lon': coords[0], 
-                'mag': f['properties']['mag'], 'place': f['properties']['place']
+                'mag': f['properties']['mag'], 'place': f['properties']['place'],
+                'time': f['properties']['time']
             })
-        return pd.DataFrame(points)
-    except: return pd.DataFrame()
+        df = pd.DataFrame(points)
+        # Convert USGS Epoch to ISO 8601 UTC
+        df['time'] = pd.to_datetime(df['time'], unit='ms', utc=True)
+        return df
+    except Exception as e:
+        st.error(f"Seismic Load Error: {e}")
+        return pd.DataFrame()
 
-# 4. Main Application
-st.title("The Guardians: System Activation Log")
+# 4. Main Predictor Logic
+st.title("Guardian Predictor: Time-Synced Logic")
 df_uap = get_uap_data()
-live_stress = get_significant_seismic()
+live_stress = get_seismic_data()
 
 if not live_stress.empty and not df_uap.empty:
     log_entries = []
     active_clusters = []
     
-    # 5. Logic: Filter for Higher Magnitude Response
+    # Filter for Significant Response (M5.5+)
     major_triggers = live_stress[live_stress['mag'] >= 5.5]
     
     for _, quake in major_triggers.iterrows():
-        # Radius expands with magnitude (Sp^2 * 10)
+        # Weighted Radius = (Mag^2) * 10
         radius = (quake['mag'] ** 2) * 10
         dist = haversine(quake['lat'], quake['lon'], df_uap['lat'], df_uap['lon'])
         matches = df_uap[dist <= radius].copy()
@@ -61,26 +69,19 @@ if not live_stress.empty and not df_uap.empty:
         if not matches.empty:
             matches['type'] = 'Activated Node'
             active_clusters.append(matches)
-            log_entries.append(f"⚠️ **ALERT:** M{quake['mag']} event near {quake['place']} has activated {len(matches)} Guardian nodes within {int(radius)}km.")
+            log_entries.append(f"⚠️ **ALERT:** M{quake['mag']} near {quake['place']} (Synced: {quake['time'].strftime('%Y-%m-%d')}) triggered {len(matches)} nodes.")
 
-    # 6. Display Map & Log
+    # 5. Display Components
     col1, col2 = st.columns([2, 1])
-    
     with col1:
         if active_clusters:
-            map_data = pd.concat([major_triggers.assign(type='Seismic Trigger')] + active_clusters)
-            st.map(map_data, color='type')
+            st.map(pd.concat([major_triggers.assign(type='Seismic Trigger')] + active_clusters), color='type')
         else:
-            st.info("No High-Magnitude (M5.5+) triggers detected in the last 24 hours.")
-            st.map(live_stress.assign(type='Low Stress'))
-
+            st.info("No active M5.5+ clusters detected.")
+            st.map(live_stress.assign(type='Seismic Monitor'))
+    
     with col2:
-        st.subheader("System Log")
-        if log_entries:
-            for entry in log_entries:
-                st.write(entry)
-        else:
-            st.write("System Status: **DORMANT**. No major stressors detected.")
-
+        st.subheader("System Activation Log")
+        for entry in log_entries: st.write(entry)
 else:
-    st.warning("Synchronizing with planetary data streams...")
+    st.info("Awaiting live planetary data streams...")
