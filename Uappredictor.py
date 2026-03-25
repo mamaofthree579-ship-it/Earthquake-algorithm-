@@ -3,13 +3,10 @@ import datetime
 import requests
 import pandas as pd
 
-# --- Default Model Parameters (will be overridden by sidebar) ---
-DEFAULT_WEIGHT_SEISMIC = 0.6
-DEFAULT_KP_MULTIPLIER = 10
-DEFAULT_PSI_THRESHOLD = 80
+# --- Constants & Defaults ---
 PREDICTION_LAG_DAYS = 3
 
-# --- Real Data Fetching Functions (No changes) ---
+# --- Real Data Fetching Functions ---
 
 def fetch_real_earthquake_data(date_str):
     """ Fetches real seismic data from the USGS API. """
@@ -33,9 +30,12 @@ def fetch_real_earthquake_data(date_str):
         st.error(f"❌ Could not connect to USGS API: {e}")
         return 0, None, 0
 
-def fetch_real_geomagnetic_data(date_str):
-    """ Fetches real geomagnetic data from the NOAA SWPC API. """
+def fetch_live_geomagnetic_data(date_str):
+    """ Fetches live geomagnetic data, returns 0 if data is too old. """
     url = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+    if datetime.datetime.strptime(date_str, "%Y-%m-%d").date() < datetime.date.today() - datetime.timedelta(days=27):
+        st.warning(f"⚠️ Live NOAA data for {date_str} is too old. Use the manual override below.")
+        return 0
     try:
         response = requests.get(url, timeout=15)
         response.raise_for_status()
@@ -46,18 +46,14 @@ def fetch_real_geomagnetic_data(date_str):
             st.write(f"✔️ NOAA API Success: Found max Kp-index of {max_kp}.")
             return max_kp
         else:
-            if datetime.datetime.strptime(date_str, "%Y-%m-%d").date() < datetime.date.today() - datetime.timedelta(days=27):
-                st.error(f"❌ NOAA data for {date_str} is >27 days old and not available via this API.")
-            else:
-                st.warning(f"⚠️ No Kp-index data found for {date_str} in NOAA's recent data.")
+            st.warning(f"⚠️ No live Kp-index data found for {date_str}.")
             return 0
     except requests.exceptions.RequestException as e:
-        st.error(f"❌ Could not connect to NOAA API: {e}")
+        st.error(f"❌ Could not connect to live NOAA API: {e}")
         return 0
 
-# --- Core Logic (Now accepts parameters) ---
+# --- Core Logic ---
 def calculate_psi(seismic_count, max_kp, seismic_weight, kp_multiplier):
-    """ Calculates the PSI using adjustable parameters. """
     geomagnetic_weight = 1.0 - seismic_weight
     psi = (seismic_weight * seismic_count) + (geomagnetic_weight * (max_kp * kp_multiplier))
     return psi
@@ -74,25 +70,27 @@ analysis_mode = st.sidebar.radio("Mode", ('Live Prediction', 'Historical Analysi
 target_date = datetime.date.today()
 if analysis_mode == 'Historical Analysis':
     target_date = st.sidebar.date_input(
-        "Select Target Date",
-        datetime.date(2004, 11, 14), # Default to USS Nimitz
-        max_value=datetime.date.today()
+        "Select Target Date", datetime.date(2004, 11, 14), max_value=datetime.date.today()
     )
 
 st.sidebar.divider()
+
+# --- Manual Kp-Index Override ---
+st.sidebar.header("Historical Kp-Index")
+manual_kp_override = st.sidebar.checkbox("Manually Enter Kp-Index")
+manual_kp_value = 0
+if manual_kp_override:
+    st.sidebar.info("Look up the Kp-index from the official archive and enter the highest value for the stimulus date.")
+    st.sidebar.markdown("[GFZ Potsdam Historical Kp Data](ftp://ftp.gfz-potsdam.de/pub/home/obs/kp-ap/wdc/monthly/)", unsafe_allow_html=True)
+    manual_kp_value = st.sidebar.number_input("Max Kp-Index for Stimulus Date", min_value=0.0, max_value=9.0, step=0.1)
+
+st.sidebar.divider()
+
+# --- Model Parameter Controls ---
 st.sidebar.header("Model Parameters")
-seismic_weight = st.sidebar.slider(
-    "Seismic Weight", 0.0, 1.0, DEFAULT_WEIGHT_SEISMIC, 0.05,
-    help="Adjust the influence of earthquakes. Geomagnetic weight will be the remainder."
-)
-kp_multiplier = st.sidebar.slider(
-    "Kp-Index Multiplier", 1, 20, DEFAULT_KP_MULTIPLIER,
-    help="Scales the geomagnetic score to make it comparable to seismic events."
-)
-psi_threshold = st.sidebar.slider(
-    "PSI Alert Threshold", 50, 150, DEFAULT_PSI_THRESHOLD,
-    help="The PSI value above which a 'High Probability' alert is triggered."
-)
+seismic_weight = st.sidebar.slider("Seismic Weight", 0.0, 1.0, 0.6, 0.05)
+kp_multiplier = st.sidebar.slider("Kp-Index Multiplier", 1, 20, 10)
+psi_threshold = st.sidebar.slider("PSI Alert Threshold", 50, 150, 80)
 
 run_analysis = st.sidebar.button('Run Analysis', type="primary")
 
@@ -107,13 +105,14 @@ if run_analysis:
 
     with st.spinner(f"Fetching planetary data for {stimulus_date_str}..."):
         seismic_count, quake_loc, quake_mag = fetch_real_earthquake_data(stimulus_date_str)
-        kp_index = fetch_real_geomagnetic_data(stimulus_date_str)
+        kp_index = 0
+        if manual_kp_override:
+            st.write(f"✔️ Manual Override: Using Kp-Index of {manual_kp_value}.")
+            kp_index = manual_kp_value
+        else:
+            kp_index = fetch_live_geomagnetic_data(stimulus_date_str)
 
-    # --- FIX WAS HERE ---
-    # Now correctly passing the slider values into the calculation.
     psi_value = calculate_psi(seismic_count, kp_index, seismic_weight, kp_multiplier)
-
-    # Also dynamically creating the formula for the tooltip
     geomagnetic_weight = 1.0 - seismic_weight
     psi_formula_help = (f"PSI = ({seismic_weight:.2f} * Quakes) + ({geomagnetic_weight:.2f} * Kp-Index * {kp_multiplier})")
 
@@ -126,14 +125,13 @@ if run_analysis:
     st.write("---")
     st.subheader(f"Conclusion for Target Date: {target_date.strftime('%B %d, %Y')}")
 
-    # And using the custom psi_threshold for the comparison
     if psi_value > psi_threshold:
-        st.warning(f"**RESULT: HIGH PROBABILITY PREDICTED.** The model suggests a high likelihood of activity on this date. The PSI of **{psi_value:.2f}** exceeded the custom threshold of **{psi_threshold}**.")
+        st.warning(f"**RESULT: HIGH PROBABILITY PREDICTED.** The PSI of **{psi_value:.2f}** exceeded the threshold of **{psi_threshold}**.")
         if seismic_count > 0 and quake_loc:
             st.subheader("Predicted Area of Interest")
-            st.markdown(f"A Magnitude **{quake_mag}** earthquake was the primary trigger. Activity may have been concentrated near its epicenter.")
+            st.markdown(f"A Magnitude **{quake_mag}** earthquake was a likely trigger. Activity may have been concentrated near its epicenter.")
             st.map(pd.DataFrame([quake_loc]), zoom=4)
     else:
-        st.success(f"**RESULT: NOMINAL ACTIVITY PREDICTED.** The PSI of **{psi_value:.2f}** is below the custom threshold of **{psi_threshold}**.")
+        st.success(f"**RESULT: NOMINAL ACTIVITY PREDICTED.** The PSI of **{psi_value:.2f}** is below the threshold of **{psi_threshold}**.")
 else:
     st.info("Adjust parameters and click 'Run Analysis' in the sidebar to begin.")
