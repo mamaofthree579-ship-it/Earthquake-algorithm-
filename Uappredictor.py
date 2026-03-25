@@ -2,6 +2,7 @@ import streamlit as st
 import datetime
 import requests
 import pandas as pd
+import lxml
 
 # --- Constants & Defaults ---
 PREDICTION_LAG_DAYS = 3
