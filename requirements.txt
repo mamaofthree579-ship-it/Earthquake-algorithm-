@@ -12,3 +12,4 @@ tenacity
 plotly
 fastapi
 uvicorn
+lxml
