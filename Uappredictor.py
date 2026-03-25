@@ -1,72 +1,61 @@
 import streamlit as st
-import pandas as pd
 import requests
-import io
 import numpy as np
+import pandas as pd
+from datetime import datetime, timedelta
 
-# 1. Haversine Distance (km)
-def haversine(lat1, lon1, lat2, lon2):
-    R = 6371
-    dlat, dlon = np.radians(lat2 - lat1), np.radians(lon2 - lon1)
-    a = np.sin(dlat/2)**2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon/2)**2
-    return R * 2 * np.arcsin(np.sqrt(a))
+# 1. Setup the Page
+st.title("The Guardians: Real-Time Planetary Regulation")
+st.write("Live-feeding USGS seismic data into Hope Jones's algorithm.")
 
-# 2. Robust UAP Data Load
-@st.cache_data
-def get_uap_data():
-    url = "https://corgis-edu.github.io"
-    try:
-        response = requests.get(url, timeout=10)
-        df = pd.read_csv(io.StringIO(response.text), on_bad_lines='skip', engine='python')
-        # Ensure we have clean floats for coordinates
-        df = df.rename(columns={'Location.Latitude': 'lat', 'Location.Longitude': 'lon'})
-        df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
-        df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
-        return df.dropna(subset=['lat', 'lon'])
-    except: return pd.DataFrame()
-
-# 3. Correct USGS JSON Feed
-def get_live_seismic():
-    # This specific URL provides the actual JSON data
-    url = "https://earthquake.usgs.gov"
-    try:
-        resp = requests.get(url, timeout=10).json()
-        points = []
-        for f in resp['features']:
-            coords = f['geometry']['coordinates']
-            points.append({
-                'lat': coords[1], 
-                'lon': coords[0], 
-                'mag': f['properties']['mag'],
-                'type': 'Live Stress'
-            })
-        return pd.DataFrame(points)
-    except: return pd.DataFrame()
-
-# 4. Processing & Magnitude Weighting
-st.title("Guardian Predictor: Weighted Cluster Analysis")
-df_uap = get_uap_data()
-live_stress = get_live_seismic()
-
-if not live_stress.empty and not df_uap.empty:
-    active_clusters = []
+# 2. Function to fetch live seismic data (Sp)
+def get_live_seismic_stress():
+    # Fetching earthquakes from the last 24 hours (Magnitude 2.5+)
+    endtime = datetime.utcnow().isoformat()
+    starttime = (datetime.utcnow() - timedelta(days=1)).isoformat()
+    url = f"https://earthquake.usgs.gov{starttime}&endtime={endtime}&minmagnitude=2.5"
     
-    for _, quake in live_stress.iterrows():
-        # MAGNITUDE WEIGHT: Radius = (Magnitude^2) * 10 
-        # (e.g., M5 = 250km, M7 = 490km)
-        dynamic_radius = (quake['mag'] ** 2) * 10
+    try:
+        response = requests.get(url)
+        data = response.json()
+        features = data.get('features', [])
         
-        dist = haversine(quake['lat'], quake['lon'], df_uap['lat'], df_uap['lon'])
-        matches = df_uap[dist <= dynamic_radius].copy()
-        matches['type'] = 'Active Node'
-        active_clusters.append(matches)
-    
-    # 5. Build Map
-    all_points = pd.concat([live_stress.assign(type='Seismic Trigger')] + active_clusters)
-    st.map(all_points, color='type')
-    
-    st.sidebar.write(f"Live Triggers: {len(live_stress)}")
-    st.sidebar.write("🔴 **Red:** Seismic Trigger")
-    st.sidebar.write("🔵 **Blue:** Activated Guardian Node")
+        if not features:
+            return 1.0 # Minimum background stress
+        
+        # Stress Calculation: Energy scales exponentially with magnitude
+        # We sum 10^mag to represent relative energy release
+        total_energy = sum([10**f['properties']['mag'] for f in features])
+        
+        # Normalize to a 1-10 scale for the simulator
+        stress_score = min(10, np.log10(total_energy) / 2)
+        return round(stress_score, 2), len(features)
+    except:
+        return 5.0, 0 # Fallback value
+
+# 3. Live Inputs
+live_stress, quake_count = get_live_seismic_stress()
+st.sidebar.header("Live Feed Status")
+st.sidebar.metric("Live Seismic Stress (Sp)", live_stress)
+st.sidebar.write(f"Based on {quake_count} earthquakes (24h)")
+
+# Manual input for the "Resonance Key" (Intent)
+human_intent = st.sidebar.slider("Human Coherence (Ih) - Z-Score", 0.0, 5.0, 1.0)
+resonance_threshold = 7.5 # Jones's activation constant (Kr)
+
+# 4. The Algorithm Logic
+def calculate_activation(sp, ih):
+    weight = 0.3548 # Hope Jones's specific correlation weight
+    score = (sp * weight) + (ih * (1 - weight))
+    return np.clip(score * 1.5, 0, 10)
+
+activation_score = calculate_activation(live_stress, human_intent)
+
+# 5. Result Display
+st.subheader("System Status")
+if activation_score >= resonance_threshold:
+    st.success(f"ACTIVATED (Score: {activation_score:.2f})")
+    st.write("Guardian system has reached activation threshold. Sightings likely.")
 else:
-    st.warning("Awaiting live data stream...")
+    st.info(f"DORMANT (Score: {activation_score:.2f})")
+    st.write("System remains in low-power standby mode.")
