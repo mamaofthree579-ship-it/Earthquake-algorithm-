@@ -5,133 +5,101 @@ import pandas as pd
 
 # --- Constants & Defaults ---
 PREDICTION_LAG_DAYS = 3
+SEARCH_RADIUS_KM = 500 # Look for quakes within a 500km radius of the sighting
 
-# --- Real Data Fetching Functions ---
+# --- Data Fetching Functions ---
 
-def fetch_real_earthquake_data(date_str):
-    """ Fetches real seismic data from the USGS API. """
-    start_time = f"{date_str}T00:00:00"
-    end_time = f"{date_str}T23:59:59"
-    url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime={start_time}&endtime={end_time}&minmagnitude=6.0"
+def fetch_sighting_data():
+    """ Fetches the latest UAP sightings from a public API. """
+    # Using a public API that scrapes NUFORC data
+    url = "https://nuforc.org/webreports/ndxpost.html"
+    try:
+        # We need to use pandas to scrape the HTML table directly
+        tables = pd.read_html(url)
+        df = tables[0]
+        # Rename columns for easier use
+        df.columns = ['Date / Time', 'City', 'State', 'Country', 'Shape', 'Duration', 'Summary', 'Posted', 'Images']
+        # Convert date/time to a consistent format
+        df['Event Date'] = pd.to_datetime(df['Date / Time'].str.split(' ').str[0], errors='coerce')
+        # Drop rows where date conversion failed
+        df.dropna(subset=['Event Date'], inplace=True)
+        return df
+    except Exception as e:
+        st.error(f"❌ Could not fetch sighting data from NUFORC: {e}")
+        return pd.DataFrame()
+
+def get_coords_for_city(city, state):
+    """ Gets latitude and longitude for a city using a free geocoding API. """
+    url = f"https://nominatim.openstreetmap.org/search?city={city}&state={state}&format=json"
+    headers = {'User-Agent': 'UAP-Guardian-Predictor/1.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        if data:
+            return float(data[0]['lat']), float(data[0]['lon'])
+    except Exception:
+        # Silently fail, as some city names might be messy
+        return None, None
+
+def fetch_local_earthquakes(stimulus_date, lat, lon, radius_km):
+    """ Fetches earthquakes near a specific location. """
+    start_time = f"{stimulus_date}T00:00:00"
+    # We'll check the full 3-day window
+    end_time = (stimulus_date + datetime.timedelta(days=2)).strftime("%Y-%m-%d") + "T23:59:59"
+    url = (
+        "https://earthquake.usgs.gov/fdsnws/event/1/query?"
+        f"format=geojson&starttime={start_time}&endtime={end_time}"
+        f"&latitude={lat}&longitude={lon}&maxradiuskm={radius_km}&minmagnitude=4.0" # Lowered mag for local sensitivity
+    )
     try:
         response = requests.get(url, timeout=15)
         response.raise_for_status()
         data = response.json()
-        event_count = data['metadata']['count']
-        location, max_magnitude = (None, 0)
-        if event_count > 0:
+        count = data['metadata']['count']
+        max_mag = 0
+        if count > 0:
             largest_quake = max(data['features'], key=lambda x: x['properties']['mag'])
-            max_magnitude = largest_quake['properties']['mag']
-            coords = largest_quake['geometry']['coordinates']
-            location = {'lat': coords[1], 'lon': coords[0]}
-        st.write(f"✔️ USGS API Success: Found {event_count} M6.0+ events.")
-        return event_count, location, max_magnitude
-    except requests.exceptions.RequestException as e:
-        st.error(f"❌ Could not connect to USGS API: {e}")
-        return 0, None, 0
-
-def fetch_live_geomagnetic_data(date_str):
-    """ Fetches live geomagnetic data, returns 0 if data is too old. """
-    url = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
-    if datetime.datetime.strptime(date_str, "%Y-%m-%d").date() < datetime.date.today() - datetime.timedelta(days=27):
-        st.warning(f"⚠️ Live NOAA data for {date_str} is too old. Use the manual override below.")
-        return 0
-    try:
-        response = requests.get(url, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-        kp_values_for_day = [float(row[1]) for row in data[1:] if row[0].startswith(date_str)]
-        if kp_values_for_day:
-            max_kp = max(kp_values_for_day)
-            st.write(f"✔️ NOAA API Success: Found max Kp-index of {max_kp}.")
-            return max_kp
-        else:
-            st.warning(f"⚠️ No live Kp-index data found for {date_str}.")
-            return 0
-    except requests.exceptions.RequestException as e:
-        st.error(f"❌ Could not connect to live NOAA API: {e}")
-        return 0
-
-# --- Core Logic ---
-def calculate_psi(seismic_count, max_kp, seismic_weight, kp_multiplier):
-    geomagnetic_weight = 1.0 - seismic_weight
-    psi = (seismic_weight * seismic_count) + (geomagnetic_weight * (max_kp * kp_multiplier))
-    return psi
+            max_mag = largest_quake['properties']['mag']
+        return count, max_mag
+    except Exception:
+        return 0, 0
 
 # --- Streamlit App UI ---
-st.set_page_config(page_title="Guardian Predictor", layout="wide")
-st.title("Guardian Activity Simulator")
-st.caption("A dynamic research tool for the 'Planetary Regulation System' theory.")
+st.set_page_config(page_title="Guardian Correlation Engine", layout="wide")
+st.title("Guardian Activity Correlation Engine")
+st.markdown("This tool automatically correlates live UAP sighting data with local geological stress events.")
 
-# --- Sidebar Controls ---
-st.sidebar.header("Analysis Controls")
-analysis_mode = st.sidebar.radio("Mode", ('Live Prediction', 'Historical Analysis'))
+st.info("Fetching the latest UAP sighting reports from the National UFO Reporting Center (NUFORC)...")
 
-target_date = datetime.date.today()
-if analysis_mode == 'Historical Analysis':
-    target_date = st.sidebar.date_input(
-        "Select Target Date", datetime.date(2004, 11, 14), max_value=datetime.date.today()
-    )
+sighting_df = fetch_sighting_data()
 
-st.sidebar.divider()
+if not sighting_df.empty:
+    st.success(f"Successfully fetched {len(sighting_df)} recent sighting reports.")
 
-# --- Manual Kp-Index Override ---
-st.sidebar.header("Historical Kp-Index")
-manual_kp_override = st.sidebar.checkbox("Manually Enter Kp-Index")
-manual_kp_value = 0
-if manual_kp_override:
-    st.sidebar.info("Look up the Kp-index from the official archive and enter the highest value for the stimulus date.")
-    st.sidebar.markdown("[GFZ Potsdam Historical Kp Data](ftp://ftp.gfz-potsdam.de/pub/home/obs/kp-ap/wdc/monthly/)", unsafe_allow_html=True)
-    manual_kp_value = st.sidebar.number_input("Max Kp-Index for Stimulus Date", min_value=0.0, max_value=9.0, step=0.1)
+    # We only have resources to process the last N sightings
+    sightings_to_process = st.slider("Number of recent sightings to analyze:", 5, 50, 10)
 
-st.sidebar.divider()
+    for index, row in sighting_df.head(sightings_to_process).iterrows():
+        sighting_date = row['Event Date']
+        stimulus_date = sighting_date - datetime.timedelta(days=PREDICTION_LAG_DAYS)
+        city, state = row['City'], row['State']
 
-# --- Model Parameter Controls ---
-st.sidebar.header("Model Parameters")
-seismic_weight = st.sidebar.slider("Seismic Weight", 0.0, 1.0, 0.6, 0.05)
-kp_multiplier = st.sidebar.slider("Kp-Index Multiplier", 1, 20, 10)
-psi_threshold = st.sidebar.slider("PSI Alert Threshold", 50, 150, 80)
+        st.write("---")
+        st.subheader(f"Sighting: {city}, {state} on {sighting_date.strftime('%Y-%m-%d')}")
+        st.caption(f"Summary: {row['Summary']}")
 
-run_analysis = st.sidebar.button('Run Analysis', type="primary")
+        with st.spinner(f"Analyzing geological data for {city}, {state}..."):
+            lat, lon = get_coords_for_city(city, state)
+            if lat and lon:
+                quake_count, max_mag = fetch_local_earthquakes(stimulus_date, lat, lon, SEARCH_RADIUS_KM)
 
-# --- Main App Body ---
-if run_analysis:
-    stimulus_date = target_date - datetime.timedelta(days=PREDICTION_LAG_DAYS)
-    stimulus_date_str = stimulus_date.strftime("%Y-%m-%d")
+                if quake_count > 0:
+                    st.warning(f"**CORRELATION FOUND:** Found **{quake_count}** M4.0+ earthquakes within {SEARCH_RADIUS_KM}km in the 3 days prior. Max Magnitude: **{max_mag:.2f}**.")
+                else:
+                    st.success(f"**No Correlation:** No significant local seismic activity found in the 3 days prior to the sighting.")
+            else:
+                st.error(f"Could not find geographic coordinates for '{city}, {state}'. Skipping analysis.")
 
-    st.header(f"Analysis for: {target_date.strftime('%B %d, %Y')}")
-    st.markdown(f"Planetary data is being fetched for the stimulus date: **{stimulus_date_str}**.")
-    st.write("---")
-
-    with st.spinner(f"Fetching planetary data for {stimulus_date_str}..."):
-        seismic_count, quake_loc, quake_mag = fetch_real_earthquake_data(stimulus_date_str)
-        kp_index = 0
-        if manual_kp_override:
-            st.write(f"✔️ Manual Override: Using Kp-Index of {manual_kp_value}.")
-            kp_index = manual_kp_value
-        else:
-            kp_index = fetch_live_geomagnetic_data(stimulus_date_str)
-
-    psi_value = calculate_psi(seismic_count, kp_index, seismic_weight, kp_multiplier)
-    geomagnetic_weight = 1.0 - seismic_weight
-    psi_formula_help = (f"PSI = ({seismic_weight:.2f} * Quakes) + ({geomagnetic_weight:.2f} * Kp-Index * {kp_multiplier})")
-
-    st.subheader(f"Planetary Data Analysis for {stimulus_date_str}")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("M6.0+ Earthquakes", f"{seismic_count}")
-    col2.metric("Max Geomagnetic Kp-Index", f"{kp_index}")
-    col3.metric("Calculated PSI", f"{psi_value:.2f}", help=psi_formula_help)
-
-    st.write("---")
-    st.subheader(f"Conclusion for Target Date: {target_date.strftime('%B %d, %Y')}")
-
-    if psi_value > psi_threshold:
-        st.warning(f"**RESULT: HIGH PROBABILITY PREDICTED.** The PSI of **{psi_value:.2f}** exceeded the threshold of **{psi_threshold}**.")
-        if seismic_count > 0 and quake_loc:
-            st.subheader("Predicted Area of Interest")
-            st.markdown(f"A Magnitude **{quake_mag}** earthquake was a likely trigger. Activity may have been concentrated near its epicenter.")
-            st.map(pd.DataFrame([quake_loc]), zoom=4)
-    else:
-        st.success(f"**RESULT: NOMINAL ACTIVITY PREDICTED.** The PSI of **{psi_value:.2f}** is below the threshold of **{psi_threshold}**.")
 else:
-    st.info("Adjust parameters and click 'Run Analysis' in the sidebar to begin.")
+    st.error("Could not retrieve sighting data. The source may be down or the format may have changed.")
