@@ -3,10 +3,31 @@ import datetime
 import requests
 import pandas as pd
 import io
-from geopy.distance import geodesic
+import math
 
 # --- Constants & Defaults ---
 PREDICTION_LAG_DAYS = 3
+
+# --- Haversine Distance Function (No Dependencies) ---
+def calculate_haversine_distance(lat1, lon1, lat2, lon2):
+    """
+    Calculates the distance between two points on Earth using the Haversine formula.
+    """
+    R = 6371 # Earth radius in kilometers
+
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+
+    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    distance = R * c
+    return distance
 
 # --- Fallback Data ---
 FALLBACK_DATA = """Date / Time,City,State,Country,Shape,Duration,Summary,Posted,Images
@@ -17,8 +38,6 @@ FALLBACK_DATA = """Date / Time,City,State,Country,Shape,Duration,Summary,Posted,
 11/8/23 22:00,Las Vegas,NV,USA,Light,5 minutes,3 bright lights in a triangular formation moving silently.,11/10/23,
 11/8/23 19:45,Los Angeles,CA,USA,Circle,15 seconds,A perfect circle of light zipped across the sky.,11/10/23,
 11/7/23 20:30,Austin,TX,USA,Chevron,1 minute,V-shaped craft with white lights on the leading edge.,11/10/23,
-11/7/23 05:30,Phoenix,AZ,USA,Fireball,30 seconds,A bright fireball streaked across the morning sky.,11/10/23,
-11/6/23 21:15,Denver,CO,USA,Light,2 minutes,Stationary light that suddenly accelerated and vanished.,11/10/23,
 """
 
 # --- Data Fetching Functions ---
@@ -31,13 +50,13 @@ def fetch_sighting_data():
         st.sidebar.success("Live NUFORC data loaded.")
         return df
     except Exception as e:
-        st.sidebar.warning(f"Live data failed: {e}. Using static backup.")
+        st.sidebar.warning(f"Live data failed. Using static backup.")
         return pd.read_csv(io.StringIO(FALLBACK_DATA))
 
 def get_coords_for_city(city, state):
     query = f"{city}, {state}" if state and pd.notna(state) else city
     url = f"https://nominatim.openstreetmap.org/search?q={query}&format=json"
-    headers = {'User-Agent': 'UAP-Guardian-Correlation-Engine/1.2'}
+    headers = {'User-Agent': 'UAP-Guardian-Correlation-Engine/1.3'} # Incremented version
     try:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
@@ -60,7 +79,7 @@ def fetch_local_earthquakes(stimulus_date, lat, lon, radius_km):
         response.raise_for_status()
         data = response.json()
         if data['metadata']['count'] > 0:
-            return data['features'] # Return all found events
+            return data['features']
     except Exception:
         return []
     return []
@@ -70,7 +89,6 @@ st.set_page_config(page_title="Guardian Correlation Engine", layout="wide")
 st.title("Guardian Activity Correlation Engine")
 st.markdown("This tool automatically correlates UAP sightings with local seismic activity, including distance to the epicenter.")
 
-# --- Sidebar Controls ---
 st.sidebar.header("Analysis Parameters")
 search_radius_km = st.sidebar.slider("Search Radius (km)", 100, 1000, 500, 50)
 sightings_to_process = st.sidebar.slider("Number of recent sightings to analyze:", 5, 50, 10)
@@ -102,7 +120,7 @@ if sighting_df_raw is not None and not sighting_df_raw.empty:
                     for quake in earthquakes:
                         quake_mag = quake['properties']['mag']
                         quake_coords = (quake['geometry']['coordinates'][1], quake['geometry']['coordinates'][0])
-                        distance = geodesic(sighting_coords, quake_coords).kilometers
+                        distance = calculate_haversine_distance(sighting_coords[0], sighting_coords[1], quake_coords[0], quake_coords[1])
                         st.markdown(f"- **Mag {quake_mag:.1f}** earthquake **{distance:.0f} km away**.")
                 else:
                     st.success(f"**No Correlation:** No significant local seismic activity found in the {search_radius_km}km radius during the 3-day window.")
