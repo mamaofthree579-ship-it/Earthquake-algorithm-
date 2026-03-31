@@ -3,6 +3,7 @@ pandas>=2.2
 requests>=2.31
 numpy>=1.26,<2.0
 scipy
+scikit-sparse
 pywavelets>=1.6
 scikit-learn>=1.4
 lxml
