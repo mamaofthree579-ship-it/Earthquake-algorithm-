@@ -7,10 +7,9 @@ scikit-sparse
 pywavelets
 scikit-learn
 lxml
-plotly.express
-torch
 joblib
 tenacity
 plotly
 fastapi
 uvicorn
+torch --index-url https://pytorch.org
