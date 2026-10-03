@@ -1,0 +1,4 @@
+libsuitesparse-dev
+gfortran
+libblas-dev
+liblapack-dev
